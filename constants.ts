@@ -317,6 +317,7 @@ export const ASSET_SAMPLE_RECORDS: import('./types').AssetRecord[] = [
     date: '2023-08-31',
     broker: '키움증권',
     name: 'TSLA-테슬라',
+    accountNumber: '562-12-345678',
     accountType: '일반계좌',
     tradeType: '매수',
     dividendCycle: '없음',

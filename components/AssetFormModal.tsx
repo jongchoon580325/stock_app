@@ -18,6 +18,7 @@ const EMPTY_RECORD: Omit<AssetRecord, 'id'> = {
     date: new Date().toISOString().split('T')[0],
     broker: '',
     name: '',
+    accountNumber: '',
     accountType: '일반계좌',
     tradeType: '매수',
     dividendCycle: '없음',
@@ -167,7 +168,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className={labelClass}>증권사</label>
                                     <select
@@ -195,6 +196,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                             autoFocus
                                         />
                                     )}
+                                </div>
+                                <div>
+                                    <label className={labelClass}>계좌번호</label>
+                                    <input
+                                        type="text"
+                                        name="accountNumber"
+                                        value={formData.accountNumber || ''}
+                                        onChange={handleChange}
+                                        placeholder="123-45-67890"
+                                        className={inputClass}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClass}>종목명</label>

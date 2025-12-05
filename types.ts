@@ -7,6 +7,7 @@ export interface AssetRecord {
   date: string;
   broker: string;
   name: string;
+  accountNumber?: string;
   accountType: '일반계좌' | 'ISA' | '연금저축계좌' | '비과세저축계좌' | '일반배당계좌';
   tradeType: '매수' | '매도';
   dividendCycle: string;

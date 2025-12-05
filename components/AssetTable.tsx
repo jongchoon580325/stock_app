@@ -116,6 +116,7 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick, isF
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">거래일</th>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">증권사</th>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">종목명</th>
+              <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">계좌번호</th>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">계좌유형</th>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">거래</th>
               <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider">주기</th>
@@ -138,6 +139,7 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick, isF
                 <td className="px-4 py-3 text-slate-600 font-mono">{record.date}</td>
                 <td className="px-4 py-3 text-slate-600">{record.broker}</td>
                 <td className="px-4 py-3 font-medium text-slate-800">{record.name}</td>
+                <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.accountNumber || '-'}</td>
                 <td className="px-4 py-3">{getAccountBadge(record.accountType)}</td>
                 <td className={`px-4 py-3 font-medium ${record.tradeType === '매수' ? 'text-red-600' : 'text-blue-600'}`}>
                   {record.tradeType}

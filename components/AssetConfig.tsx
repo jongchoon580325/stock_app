@@ -114,7 +114,7 @@ export const AssetConfig: React.FC = () => {
     // Unified CSV Headers (same for sample, export, import)
     const CSV_HEADERS = [
         '주식구분', '국가', '거래일', '증권사', '종목명',
-        '계좌유형', '거래유형', '분배주기', '매입주가', '수량',
+        '계좌번호', '계좌유형', '거래유형', '분배주기', '매입주가', '수량',
         '매수금액', '매도금액', '적용환율'
     ];
 
@@ -126,6 +126,7 @@ export const AssetConfig: React.FC = () => {
             r.date,
             r.broker,
             r.name,
+            r.accountNumber || '',
             r.accountType,
             r.tradeType,
             r.dividendCycle,
@@ -161,6 +162,7 @@ export const AssetConfig: React.FC = () => {
             r.date,
             r.broker,
             r.name,
+            r.accountNumber || '',
             r.accountType,
             r.tradeType,
             r.dividendCycle,
@@ -243,15 +245,16 @@ export const AssetConfig: React.FC = () => {
                         date: cols[2] || new Date().toISOString().split('T')[0],
                         broker: cols[3] || '',
                         name: cols[4] || '',
-                        accountType: (cols[5] as any) || '일반계좌',
-                        tradeType: (cols[6] as '매수' | '매도') || '매수',
-                        dividendCycle: cols[7] || '없음',
-                        price: parseNumber(cols[8]),
-                        quantity: parseNumber(cols[9]),
-                        amount: parseNumber(cols[10]),
-                        sellAmount: parseNumber(cols[11]),
-                        exchangeRate: parseNumber(cols[12]),
-                        note: cols[13] || ''
+                        accountNumber: cols[5] || '',
+                        accountType: (cols[6] as any) || '일반계좌',
+                        tradeType: (cols[7] as '매수' | '매도') || '매수',
+                        dividendCycle: cols[8] || '없음',
+                        price: parseNumber(cols[9]),
+                        quantity: parseNumber(cols[10]),
+                        amount: parseNumber(cols[11]),
+                        sellAmount: parseNumber(cols[12]),
+                        exchangeRate: parseNumber(cols[13]),
+                        note: cols[14] || ''
                     };
                 });
 
