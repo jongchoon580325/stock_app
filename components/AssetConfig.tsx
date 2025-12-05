@@ -67,16 +67,21 @@ export const AssetConfig: React.FC = () => {
         }
     }, [records]);
 
-    // Filter records based on search query
+    // Filter records based on search query and sort by date (newest first)
     const filteredRecords = useMemo(() => {
-        if (!searchQuery.trim()) return records;
+        let results = records;
 
-        const query = searchQuery.toLowerCase();
-        return records.filter(record =>
-            record.name.toLowerCase().includes(query) ||
-            record.broker.toLowerCase().includes(query) ||
-            record.stockType.toLowerCase().includes(query)
-        );
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            results = results.filter(record =>
+                record.name.toLowerCase().includes(query) ||
+                record.broker.toLowerCase().includes(query) ||
+                record.stockType.toLowerCase().includes(query)
+            );
+        }
+
+        // Sort by date descending (newest first)
+        return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [records, searchQuery]);
 
     // Stats Calculation (use filtered records)
@@ -97,14 +102,24 @@ export const AssetConfig: React.FC = () => {
         return { krwTotal, usdTotal, grandTotal };
     }, [records, exchangeRate]);
 
+    // Helper: parse number from various formats (with/without comma, currency symbols)
+    const parseNumber = (value: string | undefined): number => {
+        if (!value || value.trim() === '') return 0;
+        // Remove currency symbols, commas, spaces
+        const cleaned = value.toString().replace(/[$₩,\s]/g, '').trim();
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+    };
+
+    // Unified CSV Headers (same for sample, export, import)
+    const CSV_HEADERS = [
+        '주식구분', '국가', '거래일', '증권사', '종목명',
+        '계좌유형', '거래유형', '분배주기', '매입주가', '수량',
+        '매수금액', '매도금액', '적용환율'
+    ];
+
     // Sample CSV Download Logic
     const handleDownloadSample = () => {
-        const headers = [
-            '주식구분', '국가', '거래일', '증권사', '종목명',
-            '계좌유형', '거래유형', '분배주기', '매입주가', '수량',
-            '매수금액', '적용환율', '매도금액', '비고'
-        ];
-
         const rows = ASSET_SAMPLE_RECORDS.map(r => [
             r.stockType,
             r.country,
@@ -117,22 +132,20 @@ export const AssetConfig: React.FC = () => {
             r.price,
             r.quantity,
             r.amount,
-            r.exchangeRate || '',
-            '', // Sell Amount (Empty in sample)
-            r.note || ''
+            r.sellAmount || 0,
+            r.exchangeRate || 0
         ].join(','));
 
-        const csvContent = [headers.join(','), ...rows].join('\n');
+        const csvContent = [CSV_HEADERS.join(','), ...rows].join('\n');
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'asset_sample_template.csv'; // Use ASCII filename for compatibility
+        link.download = 'asset_sample_template.csv';
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
 
-        // Clean up after download
         setTimeout(() => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
@@ -141,12 +154,6 @@ export const AssetConfig: React.FC = () => {
 
     // Export Current Data as CSV
     const handleExportCSV = () => {
-        const headers = [
-            '주식구분', '국가', '거래일', '증권사', '종목명',
-            '계좌유형', '거래유형', '분배주기', '매입주가', '수량',
-            '매수금액', '적용환율', '비고'
-        ];
-
         const rows = records.map(r => [
             r.stockType,
             r.country,
@@ -159,22 +166,21 @@ export const AssetConfig: React.FC = () => {
             r.price,
             r.quantity,
             r.amount,
-            r.exchangeRate || '',
-            r.note || ''
+            r.sellAmount || 0,
+            r.exchangeRate || 0
         ].join(','));
 
-        const csvContent = [headers.join(','), ...rows].join('\n');
+        const csvContent = [CSV_HEADERS.join(','), ...rows].join('\n');
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         const today = new Date().toISOString().slice(0, 10);
-        link.download = `asset_data_${today}.csv`; // Use ASCII-safe filename
+        link.download = `asset_data_${today}.csv`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
 
-        // Clean up after download
         setTimeout(() => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
@@ -186,6 +192,33 @@ export const AssetConfig: React.FC = () => {
         fileInputRef.current?.click();
     };
 
+    // CSV parser that handles quoted fields (e.g., "100,791")
+    const parseCSVLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else if (char === '\t' && !inQuotes) {
+                // Handle tab delimiter
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim()); // Add last field
+
+        return result;
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -194,28 +227,30 @@ export const AssetConfig: React.FC = () => {
         reader.onload = (event) => {
             const text = event.target?.result as string;
             try {
-                const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
                 const dataLines = lines.slice(1); // Skip header
 
                 const newRecords: AssetRecord[] = dataLines.map((line, idx) => {
-                    const cols = line.split(',');
-                    if (cols.length < 12) throw new Error(`Line ${idx + 2} has insufficient columns`);
+                    const cols = parseCSVLine(line);
+
+                    if (cols.length < 10) throw new Error(`Line ${idx + 2} has insufficient columns (${cols.length})`);
 
                     return {
                         id: crypto.randomUUID(),
-                        stockType: (cols[0].trim() as '개별주식' | 'ETF주식'),
-                        country: (cols[1].trim() as 'USA' | 'KOR'),
-                        date: cols[2].trim(),
-                        broker: cols[3].trim(),
-                        name: cols[4].trim(),
-                        accountType: cols[5].trim() as any,
-                        tradeType: (cols[6].trim() as '매수' | '매도'),
-                        dividendCycle: cols[7].trim(),
-                        price: Number(cols[8]),
-                        quantity: Number(cols[9]),
-                        amount: Number(cols[10]),
-                        exchangeRate: cols[11] ? Number(cols[11]) : undefined,
-                        note: cols[12] || ''
+                        stockType: (cols[0] as '개별주식' | 'ETF주식') || '개별주식',
+                        country: (cols[1] as 'USA' | 'KOR') || 'USA',
+                        date: cols[2] || new Date().toISOString().split('T')[0],
+                        broker: cols[3] || '',
+                        name: cols[4] || '',
+                        accountType: (cols[5] as any) || '일반계좌',
+                        tradeType: (cols[6] as '매수' | '매도') || '매수',
+                        dividendCycle: cols[7] || '없음',
+                        price: parseNumber(cols[8]),
+                        quantity: parseNumber(cols[9]),
+                        amount: parseNumber(cols[10]),
+                        sellAmount: parseNumber(cols[11]),
+                        exchangeRate: parseNumber(cols[12]),
+                        note: cols[13] || ''
                     };
                 });
 
@@ -397,6 +432,7 @@ export const AssetConfig: React.FC = () => {
             <AssetTable
                 records={filteredRecords}
                 onRowClick={openEditModal}
+                isFiltered={searchQuery.trim().length > 0}
             />
 
             <NotificationModal

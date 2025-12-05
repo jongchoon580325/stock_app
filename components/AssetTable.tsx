@@ -5,25 +5,24 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 interface AssetTableProps {
   records: AssetRecord[];
   onRowClick: (record: AssetRecord) => void;
+  isFiltered?: boolean;
 }
 
-const ITEMS_PER_PAGE = 20;
-
-export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick }) => {
+export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick, isFiltered = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Show summary 2 seconds after records change (from search)
+  // Show summary 2 seconds after records change (only when filtered)
   useEffect(() => {
     setShowSummary(false);
-    const timer = setTimeout(() => {
-      if (records.length > 0) {
+    if (isFiltered && records.length > 0) {
+      const timer = setTimeout(() => {
         setShowSummary(true);
-      }
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [records]);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [records, isFiltered]);
 
   const formatCurrency = (amount: number, country: 'USA' | 'KOR') => {
     if (country === 'USA') {
@@ -87,11 +86,11 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick }) =
   };
 
   // Pagination logic
-  const totalPages = Math.ceil(records.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(records.length / itemsPerPage);
   const paginatedRecords = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return records.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [records, currentPage]);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return records.slice(startIndex, startIndex + itemsPerPage);
+  }, [records, currentPage, itemsPerPage]);
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -184,55 +183,67 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick }) =
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
+        <div className="flex items-center gap-4">
           <div className="text-sm text-slate-600">
-            {records.length}건 중 {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, records.length)} 표시
+            {records.length}건 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, records.length)} 표시
           </div>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value={10}>10개씩</option>
+            <option value={20}>20개씩</option>
+            <option value={30}>30개씩</option>
+          </select>
+        </div>
 
+        {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => goToPage(1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-md text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               title="처음"
             >
-              <ChevronsLeft className="w-4 h-4" />
+              <ChevronsLeft className="w-4 h-4 text-slate-600" />
             </button>
-
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-md text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               title="이전"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
             </button>
 
+            {/* Page Numbers */}
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                // Show first page, last page, current page, and pages around current
-                const showPage = page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
-                const showEllipsis = (page === currentPage - 2 && currentPage > 3) || (page === currentPage + 2 && currentPage < totalPages - 2);
-
-                if (showEllipsis) {
-                  return <span key={page} className="px-2 text-slate-400">…</span>;
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
                 }
-
-                if (!showPage && page !== currentPage - 2 && page !== currentPage + 2) {
-                  return null;
-                }
-
                 return (
                   <button
-                    key={page}
-                    onClick={() => goToPage(page)}
-                    className={`min-w-[32px] px-3 py-1 rounded-md text-sm font-medium transition-colors ${page === currentPage
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-200'
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`px-3 py-1 text-sm rounded ${currentPage === pageNum
+                      ? 'bg-indigo-600 text-white font-medium'
+                      : 'hover:bg-slate-200 text-slate-700'
                       }`}
                   >
-                    {page}
+                    {pageNum}
                   </button>
                 );
               })}
@@ -241,23 +252,22 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick }) =
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-md text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               title="다음"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-slate-600" />
             </button>
-
             <button
               onClick={() => goToPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-md text-slate-600 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
               title="끝"
             >
-              <ChevronsRight className="w-4 h-4" />
+              <ChevronsRight className="w-4 h-4 text-slate-600" />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
