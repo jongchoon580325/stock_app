@@ -336,14 +336,21 @@ const App: React.FC = () => {
   const handleDownloadSample = () => {
     const data = accountType === 'general' ? INITIAL_RECORDS : TAX_FREE_SAMPLE_RECORDS;
     const csv = convertToCSV(data);
-    const fileName = accountType === 'general' ? '분배금_관리_샘플양식_일반.csv' : '분배금_관리_샘플양식_비과세.csv';
+    const today = new Date().toISOString().slice(0, 10);
+    const fileName = accountType === 'general'
+      ? `${today}-일반계좌_샘플양식.csv`
+      : `${today}-비과세계좌_샘플양식.csv`;
     downloadCSV(csv, fileName);
   };
 
   // 2. Export Current Data
   const handleExportCSV = () => {
     const csv = convertToCSV(records);
-    downloadCSV(csv, `분배금_현황_${new Date().toISOString().slice(0, 10)}.csv`);
+    const today = new Date().toISOString().slice(0, 10);
+    const fileName = accountType === 'general'
+      ? `${today}-일반계좌_내보내기.csv`
+      : `${today}-비과세계좌_내보내기.csv`;
+    downloadCSV(csv, fileName);
   };
 
   // Helper to normalize dates from Excel/CSV

@@ -242,9 +242,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                     <label className={labelClass}>분배주기</label>
                                     <select name="dividendCycle" value={formData.dividendCycle} onChange={handleChange} className={selectClass}>
                                         <option value="없음">없음</option>
-                                        <option value="월말">월말</option>
+                                        <option value="월초">월초</option>
                                         <option value="월중">월중</option>
+                                        <option value="월말">월말</option>
                                         <option value="분기">분기</option>
+                                        <option value="반기">반기</option>
+                                        <option value="년">년</option>
+                                        <option value="분기">분기</option>
+                                        <option value="반기">반기</option>
+                                        <option value="년">년</option>
                                     </select>
                                 </div>
                                 <div>

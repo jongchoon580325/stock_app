@@ -141,7 +141,8 @@ export const AssetConfig: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'asset_sample_template.csv';
+        const today = new Date().toISOString().slice(0, 10);
+        link.download = `${today}-asset_config_샘플양식.csv`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
@@ -176,7 +177,7 @@ export const AssetConfig: React.FC = () => {
         const link = document.createElement('a');
         link.href = url;
         const today = new Date().toISOString().slice(0, 10);
-        link.download = `asset_data_${today}.csv`;
+        link.download = `${today}-asset_config_내보내기.csv`;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
