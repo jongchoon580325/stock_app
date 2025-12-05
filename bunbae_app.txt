@@ -1,0 +1,256 @@
+
+다음 내용을 목록, 문단, 내용등을 잘 분석해서 첨부한 Google API Key를 적용해서 잘 짜여진 'Local_App_Guide.md' 문서로 만들어줘.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+** GOOGLE_AI_STUDIO_API_KEY=AIzaSyCKAWfBz8A2EZjeBwnaCSzVj4UJtt3a720
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+0. 전체 개요
+
+우리가 만들고 싶은 건:
+	1.	Vite로 빌드된 웹앱을
+	2.	맥북에서 로컬 서버(Localhost)로 띄우고
+	3.	브라우저의 “앱으로 설치(PWA 설치)” 기능으로 독(Dock)에 고정해서
+	4.	마치 네이티브 앱처럼 쓰는 구조야.
+
+구체적인 흐름은 이렇게 보면 돼:
+	1.	.env 파일에 API 키 넣기
+	2.	Vite 코드에서 process.env → import.meta.env로 변경
+	3.	npm run build로 dist 빌드
+	4.	npx serve -s dist -l 3000 으로 로컬 서버 실행
+	5.	맥에서 .command 실행 파일 만들어 더블클릭 한 번으로 서버+브라우저 실행
+	6.	크롬(또는 엣지)에서 “앱 설치” 누르고 Dock에 고정
+
+이제 하나씩 문서처럼 정리해보자.
+
+⸻
+
+1. 사전 준비
+
+1-1. 필요 환경
+	•	macOS (맥북)
+	•	Node.js, npm 설치
+	•	프로젝트 폴더 (예: /Users/내이름/Documents/bunbae-manager)
+	•	크롬(Chrome) 혹은 Chromium 기반 브라우저 (앱 설치 기능이 있음)
+
+⚠️ 보안 주의
+첨부 파일에 적혀 있던 실제 Google API 키는 여기서 다시 노출하지 않을게.
+실제 환경에서는 반드시 .env에 숨기고, GitHub 등에 올리지 않도록 조심해.
+
+⸻
+
+2. .env 파일로 API 키 관리
+
+2-1. .env 파일 만들기
+
+프로젝트 루트 폴더(예: bunbae-manager)에서 터미널을 열고:
+
+cd "/Users/내이름/Documents/bunbae-manager"
+
+echo 'VITE_API_KEY=여기에_구글_API_키_입력' > .env
+
+	•	VITE_API_KEY 라는 이름은 Vite 규칙에 맞게 VITE_로 시작해야,
+import.meta.env.VITE_API_KEY로 접근 가능해.
+
+2-2. 코드에서 API 키 읽기
+
+기존 코드가 만약 이렇게 되어 있었다면:
+
+const apiKey = process.env.GOOGLE_AI_STUDIO_API_KEY;
+
+로컬/Vite 환경에서는 이렇게 바꿔야 해:
+
+const apiKey = import.meta.env.VITE_API_KEY;
+
+
+	•	process.env 는 Node 런타임 기준이고,
+	•	Vite 번들링 후 브라우저에서 쓸 땐 **import.meta.env**를 사용해야 한다는 게 핵심이야. 
+
+3. 앱처럼 보이게 하는 기본 세팅 (선택 사항)
+
+첨부 내용에서 “앱처럼 보이게 하는 메타 태그를 추가”라고 적혀 있었지. 
+구체 내용은 없지만, 보통은 index.html의 <head>에 이런 식으로 넣으면 좋아:
+
+<!-- index.html -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>분배금 매니저</title>
+
+  <!-- 앱 느낌을 주는 기본 메타 -->
+  <meta name="theme-color" content="#0b1120" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+</head>
+
+나중에 PWA로 더 확장하고 싶다면 manifest, service worker 도 추가할 수 있지만,
+**지금 문서의 목표는 “로컬 서버 + 브라우저 앱 설치”**이니 여기까지만.
+
+4. 빌드 및 정적 서버 준비
+
+4-1. 프로젝트 의존성 설치
+
+처음 한 번만:
+cd "/Users/내이름/Documents/bunbae-manager"
+npm install
+
+4-2. Vite 빌드 실행
+
+npm run build
+
+	•	이 명령이 실행되면 dist/ 폴더에 정적 파일이 생성돼.
+	•	나중에 코드 수정 후에는 다시 npm run build만 해주면 돼.
+
+4-3. 정적 서버 도구 설치 (serve)
+
+첨부 파일이 안내하는 방식은 serve 패키지를 이용해서 dist를 서빙하는 거야.  
+
+npm install -g serve
+
+또는 프로젝트 로컬에만 설치하고 싶으면:
+
+npm install serve --save-dev
+
+5. 맥에서 두 번 클릭으로 실행하는 .command 파일 만들기
+
+이 파트가 **“진짜 앱처럼 쓰는 핵심”**이야.
+첨부 내용에서는 다음과 같은 구조의 스크립트를 사용하라고 안내하고 있어.  
+
+5-1. 스크립트 내용
+	1.	텍스트 편집기(메모장 느낌의 앱: “텍스트 편집기”)를 연다.
+	2.	아래 내용을 그대로 붙여 넣는다.
+
+#!/bin/bash
+# 분배금 매니저 로컬 앱 실행 스크립트
+
+# 1. 프로젝트 폴더로 이동 (본인 환경에 맞게 수정)
+cd "/Users/내이름/Documents/bunbae-manager"
+
+# 2. 서버 실행 (백그라운드) - 이미 빌드된 dist 폴더 서빙
+# -s dist  : SPA 모드로 dist 폴더 서빙
+# -l 3000  : 3000번 포트 사용
+npx serve -s dist -l 3000 &
+
+# 3. 서버가 올라올 시간을 잠깐 준 다음
+sleep 2
+
+# 4. 기본 브라우저로 로컬 주소 열기
+open "http://localhost:3000"
+
+	•	cd 경로는 반드시 네 실제 프로젝트 경로로 수정해야 한다.
+	•	포트를 바꾸고 싶다면 -l 3000 을 다른 숫자로 바꾸면 돼 (예: 4173, 5173 등).
+
+
+5-2. 파일 저장
+
+위 내용을 예를 들어 **바탕화면(Desktop)**에
+분배금매니저.command 라는 이름으로 저장해.
+	•	확장자를 꼭 .command 로 해줘야 더블클릭 실행이 가능해.
+
+5-3. 실행 권한 부여
+
+터미널 열어서:
+chmod +x ~/Desktop/분배금매니저.command
+
+이제부터는 바탕화면에서 이 파일을 더블클릭하면:
+	1.	npx serve -s dist -l 3000으로 서버가 백그라운드에서 켜지고
+	2.	open "http://localhost:3000" 이 브라우저를 자동으로 열고
+	3.	로컬에서 분배금 매니저 앱이 뜬다.
+
+⸻
+
+6. 진짜 “앱처럼” 설치하기 (브라우저 PWA 설치)
+
+이제 마지막 단계.
+로컬 서버가 켜진 상태에서, 브라우저를 통해 **앱 설치(PWA 설치)**를 해보자.  
+
+6-1. 설치 버튼 찾기
+
+크롬 기준:
+	1.	http://localhost:3000 에 접속한 상태에서
+	2.	주소창 오른쪽에 모니터 + 화살표 모양 아이콘 또는
+메뉴(•••) → “저장 및 공유” → “앱 설치” 같은 항목이 보일 거야.
+	3.	“앱 설치”를 클릭하면 분배금 매니저가 독(Dock)과 Launchpad에
+별도의 앱 아이콘처럼 등록된다.
+
+6-2. 이후 사용 방식
+	•	처음 한 번:
+	•	바탕화면의 분배금매니저.command 를 실행 → 서버 + 브라우저 실행
+	•	브라우저에서 “앱 설치” 버튼 클릭, Dock에 고정
+	•	그 다음부터:
+	•	Dock에 있는 “분배금 매니저” 아이콘만 눌러서 실행
+	•	다만, 서버(npx serve ...)는 항상 켜져 있어야 하므로
+맥을 재부팅하면 다시 한 번 .command 파일을 실행해주는 게 좋다.
+
+필요하다면 serve 대신 Node 서버나 npm run preview 등의 방식으로도 운영할 수 있지만,
+첨부 파일에서 제안한 방식은 가벼운 정적 서버 + PWA 설치라서 관리가 편해.
+
+⸻
+
+7. 업데이트 / 유지보수 워크플로
+
+로컬 앱을 계속 사용하면서 코드가 바뀔 때는 아래 순서로 생각하면 돼.
+	1.	코드 수정
+	•	React/TS/JS 코드 수정 → 저장
+	2.	빌드 재실행
+
+cd "/Users/내이름/Documents/bunbae-manager"
+npm run build
+
+
+•	dist 폴더 내용이 최신 코드로 다시 생성돼.
+
+	3.	서버 재시작(필요한 경우)
+	•	예전 serve 프로세스를 끄고 (Ctrl + C 또는 ps/kill)
+	•	다시 .command 더블클릭으로 실행
+	4.	앱 아이콘은 그대로
+	•	Dock에 있는 “분배금 매니저” 아이콘은 그대로 사용 가능
+	•	내부 내용만 업데이트되는 구조라고 이해하면 된다.
+
+⸻
+
+8. 자주 생길 수 있는 문제 & 해결 팁
+	1.	포트가 이미 사용 중입니다 (EADDRINUSE 같은 메시지)
+	•	이전에 켜둔 serve 가 아직 돌아가는 경우야.
+	•	터미널에서 다음처럼 찾아서 끌 수 있어:
+
+lsof -i :3000
+
+나온 PID를 기준으로:
+kill -9 PID_번호
+
+귀찮다면 포트를 3001, 4173처럼 다른 번호로 바꿔서 .command를 수정해도 돼.
+
+	2.	브라우저에 “앱 설치” 버튼이 안 보임
+	•	브라우저가 지원하지 않거나, 설치 조건이 안 맞을 수도 있어.
+	•	Chrome, Edge 최신 버전을 사용하는지 확인.
+	•	주소창 오른쪽의 메뉴(•••) > “앱” 또는 “저장 및 공유” 쪽 메뉴도 잘 찾아봐.
+
+3. .command 더블클릭해도 아무 반응이 없는 것 같다.
+
+처음 실행 시 “보안 설정” 때문에 경고가 뜰 수 있어.
+	•	“시스템 설정 > 보안 및 개인정보 보호 > 일반”에서
+“허용” 또는 “실행”을 눌러줘야 할 때도 있다.
+	•	chmod +x 권한 부여가 제대로 되었는지도 다시 확인.
+
+9. 문서 요약 (퀵 체크리스트)
+	1.	.env 생성: VITE_API_KEY=...
+	2.	코드에서 import.meta.env.VITE_API_KEY 사용
+	3.	npm install, npm run build
+	4.	.command 파일 생성 -> 프로젝트 경로로 cd, npc serve -s dist -l 3000 & &, open "http://localhost:3000"
+	5.	chmod +x ~/Desktop/분배금매니저.command
+	6.	.command 더블클릭 → 브라우저 열림
+	7.	크롬에서 “앱 설치” → Dock에 아이콘 생성
+	8.	이후엔 Dock 아이콘 + 필요 시 .command 실행으로 완전 로컬 앱처럼 사용
+
+
+
+
+
+
+
+
+
+
+
+
