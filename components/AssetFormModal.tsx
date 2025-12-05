@@ -248,9 +248,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                         <option value="분기">분기</option>
                                         <option value="반기">반기</option>
                                         <option value="년">년</option>
-                                        <option value="분기">분기</option>
-                                        <option value="반기">반기</option>
-                                        <option value="년">년</option>
                                     </select>
                                 </div>
                                 <div>
