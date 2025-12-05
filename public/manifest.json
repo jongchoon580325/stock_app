@@ -1,6 +1,6 @@
 {
-    "name": "Bunbae Manager",
-    "short_name": "Bunbae",
+    "name": "Asset Management",
+    "short_name": "AssetMgmt",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
