@@ -1,5 +1,9 @@
 # Commit History
 
+## 13. [2025-12-07 17:38] Commit: 09cadf7
+
+   **Title:** docs: Update commit history with recent sell logic implementation
+
 ## 12. [2025-12-07 17:34] Commit: f93fae1
 
    **Title:** feat: Implement Sell Logic & Improve AssetTable Summary
