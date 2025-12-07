@@ -55,6 +55,23 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
     return null;
   };
 
+  // Calculate Summary Stats for Footer
+  const summary = useMemo(() => {
+    if (enrichedRecords.length === 0) return null;
+
+    const totalQuantity = enrichedRecords.reduce((sum, r) => sum + r.quantity, 0);
+    const totalGross = enrichedRecords.reduce((sum, r) => sum + r.grossDistribution, 0); // Sum of Receipt Amount
+
+    // Weighted Average Price (Current Price)
+    let totalVal = 0;
+    enrichedRecords.forEach(r => {
+      totalVal += r.currentPrice * r.quantity;
+    });
+    const averagePrice = totalQuantity > 0 ? totalVal / totalQuantity : 0;
+
+    return { totalQuantity, totalGross, averagePrice };
+  }, [enrichedRecords]);
+
   return (
     <div className="w-full overflow-x-auto border border-slate-400 shadow-sm">
       <table className="w-full min-w-[1000px] text-sm border-collapse bg-white">
@@ -134,7 +151,42 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
             </tr>
           )}
         </tbody>
+
+        {/* Summary Footer displayed as part of table body/footer depending on structure, here inside tbody just like AssetTable or after rows */}
+        {/* Actually AssetTable puts it INSIDE tbody. Let's do same. */}
+        {summary && (
+          <tfoot className="bg-red-50 border-t-2 border-red-200">
+            <tr>
+              {/* Spacers for Date, Name */}
+              <td colSpan={2} className="px-2 py-2 border-r border-red-100"></td>
+
+              {/* Total Qty (Under Qty - Col 3) */}
+              <td className="px-2 py-2 text-right font-bold text-red-700 border-r border-red-100 bg-red-50">
+                <div className="text-[10px] text-red-400 mb-0.5">수량합계</div>
+                {formatNumber(summary.totalQuantity)}
+              </td>
+
+              {/* Avg Price (Under Current Price - Col 4) */}
+              <td className="px-2 py-2 text-right font-bold text-red-700 border-r border-red-100 bg-red-50">
+                <div className="text-[10px] text-red-400 mb-0.5">평단가</div>
+                {formatNumber(Math.round(summary.averagePrice))}
+              </td>
+
+              {/* Spacers for PriceChange, Dividend, DivChange */}
+              <td colSpan={3} className="px-2 py-2 border-r border-red-100"></td>
+
+              {/* Total Gross Dist (Under Receipt Amount - Col 8) */}
+              <td className="px-2 py-2 text-right font-bold text-red-700 border-r border-red-100 bg-red-50">
+                <div className="text-[10px] text-red-400 mb-0.5">합계</div>
+                {formatNumber(summary.totalGross)}
+              </td>
+
+              {/* Remaining Spacers */}
+              <td colSpan={accountType === 'general' ? 5 : 2} className="px-2 py-2"></td>
+            </tr>
+          </tfoot>
+        )}
       </table>
-    </div>
+    </div >
   );
 };
