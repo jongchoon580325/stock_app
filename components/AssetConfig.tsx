@@ -228,7 +228,24 @@ export const AssetConfig: React.FC = () => {
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            const text = event.target?.result as string;
+            const buffer = event.target?.result as ArrayBuffer;
+            let text = '';
+
+            // Try decoding as UTF-8 first
+            try {
+                const decoder = new TextDecoder('utf-8', { fatal: true });
+                text = decoder.decode(buffer);
+            } catch (e) {
+                // If failed, try EUC-KR (common for Korean CSVs)
+                try {
+                    const decoder = new TextDecoder('euc-kr');
+                    text = decoder.decode(buffer);
+                } catch (e2) {
+                    alert('파일 인코딩을 확인할 수 없습니다. (UTF-8 또는 EUC-KR만 지원)');
+                    return;
+                }
+            }
+
             try {
                 const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
                 const dataLines = lines.slice(1); // Skip header
@@ -267,7 +284,7 @@ export const AssetConfig: React.FC = () => {
             }
             if (fileInputRef.current) fileInputRef.current.value = '';
         };
-        reader.readAsText(file);
+        reader.readAsArrayBuffer(file);
     };
 
     const executeImport = () => {
