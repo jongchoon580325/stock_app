@@ -1,5 +1,9 @@
 # Commit History
 
+## 15. [2025-12-08 05:25] Commit: b10e056
+
+   **Title:** fix: Monthly total only shows on last row of each month (pagination fix)
+
 ## 14. [2025-12-07 17:58] Commit: eb8cd02
 
    **Title:** docs: Finalize commit history workflow with verified hashes
