@@ -1,5 +1,13 @@
 # Commit History
 
+## 12. [2025-12-07 17:34] Commit: f93fae1
+
+   **Title:** feat: Implement Sell Logic & Improve AssetTable Summary
+
+## 11. [2025-12-07 14:19] Commit: 9f4ee7d
+
+   **Title:** docs: Fix commit history hashes and order
+
 ## 10. [2025-12-07 14:17] Commit: 9fcdafe
 
    **Title:** docs: Update commit history log
