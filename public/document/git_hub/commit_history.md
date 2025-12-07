@@ -1,5 +1,17 @@
 # Commit History
 
+## 9. [2025-12-07 14:15] Commit: 5aab908
+
+   **Title:** feat: Add Pagination and Conditional Summary Footer to DividendTable
+
+## 8. [2025-12-07 13:58] Commit: 599fa0e
+
+   **Title:** feat: Add Summary Footer to DividendTable (Qty, AvgPrice, TotalReceipt)
+
+## 7. [2025-12-07 13:30] Commit: 8e2def5
+
+   **Title:** refactor: Align Main Dashboard UI with Asset Config (Search, Metrics, Toolbar)
+
 ## 6. [2025-12-06 05:22] Commit: 9dc2a1b (예상)
 
    **Title:** feat: Add Account Number field to Asset Config
