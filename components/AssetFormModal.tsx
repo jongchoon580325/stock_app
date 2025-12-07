@@ -267,46 +267,94 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                 </div>
                                 <div>
                                     <label className={labelClass}>계좌번호</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         name="accountNumber"
-                                        value={formData.accountNumber || ''}
-                                        onChange={handleChange}
-                                        placeholder="123-45-67890"
-                                        className={inputClass}
-                                    />
+                                        value={uniqueAccountNumbers.includes(formData.accountNumber || '') ? formData.accountNumber : ((formData.accountNumber && formData.accountNumber.trim() !== '') ? '__custom__' : '')}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, accountNumber: ' ' }));
+                                            else handleChange(e);
+                                        }}
+                                        className={selectClass}
+                                    >
+                                        <option value="">계좌번호 선택</option>
+                                        {uniqueAccountNumbers.map(acc => (
+                                            <option key={acc} value={acc}>{acc}</option>
+                                        ))}
+                                        <option value="__custom__">직접 입력...</option>
+                                    </select>
+                                    {((!uniqueAccountNumbers.includes(formData.accountNumber || '') && formData.accountNumber !== '') || formData.accountNumber === ' ') && (
+                                        <input
+                                            type="text"
+                                            name="accountNumber"
+                                            value={formData.accountNumber === ' ' ? '' : formData.accountNumber}
+                                            onChange={handleChange}
+                                            placeholder="123-45-67890"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelClass}>종목명</label>
-                                    <input
-                                        required
-                                        type="text"
+                                    <select
                                         name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        list="asset-suggestions"
-                                        placeholder={`${formData.country === 'USA' ? '미국' : '국내'} 종목명 검색 또는 입력`}
-                                        className={inputClass}
-                                        autoComplete="off"
-                                    />
-                                    <datalist id="asset-suggestions">
+                                        value={filteredStockNames.includes(formData.name) ? formData.name : (formData.name && formData.name.trim() !== '' ? '__custom__' : '')}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, name: ' ' }));
+                                            else handleChange(e);
+                                        }}
+                                        className={selectClass}
+                                    >
+                                        <option value="">종목 선택</option>
                                         {filteredStockNames.map(stock => (
-                                            <option key={stock} value={stock} />
+                                            <option key={stock} value={stock}>{stock}</option>
                                         ))}
-                                    </datalist>
+                                        <option value="__custom__">직접 입력...</option>
+                                    </select>
+                                    {((!filteredStockNames.includes(formData.name) && formData.name !== '') || formData.name === ' ') && (
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name === ' ' ? '' : formData.name}
+                                            onChange={handleChange}
+                                            placeholder="종목명 입력"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className={labelClass}>계좌유형</label>
-                                    <select name="accountType" value={formData.accountType} onChange={handleChange} className={selectClass}>
+                                    <select
+                                        name="accountType"
+                                        value={['일반계좌', 'ISA', '연금저축계좌', '비과세저축계좌', '일반배당계좌'].includes(formData.accountType) ? formData.accountType : '__custom__'}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, accountType: ' ' }));
+                                            else handleChange(e);
+                                        }}
+                                        className={selectClass}
+                                    >
                                         <option value="일반계좌">일반계좌</option>
                                         <option value="ISA">ISA</option>
                                         <option value="연금저축계좌">연금저축계좌</option>
                                         <option value="비과세저축계좌">비과세저축계좌</option>
                                         <option value="일반배당계좌">일반배당계좌</option>
+                                        <option value="__custom__">직접 입력...</option>
                                     </select>
+                                    {(!['일반계좌', 'ISA', '연금저축계좌', '비과세저축계좌', '일반배당계좌'].includes(formData.accountType)) && (
+                                        <input
+                                            type="text"
+                                            name="accountType"
+                                            value={formData.accountType === ' ' ? '' : formData.accountType}
+                                            onChange={handleChange}
+                                            placeholder="계좌유형 입력"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelClass}>거래유형</label>
