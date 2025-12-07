@@ -423,31 +423,79 @@ const App: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  // CSV parser that handles quoted fields (e.g., "1,000")
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else if (char === '\t' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
+      const buffer = event.target?.result as ArrayBuffer;
+      let text = '';
+
+      // Try decoding as UTF-8 first
       try {
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        text = decoder.decode(buffer);
+      } catch (e) {
+        // If failed, try EUC-KR (common for Korean CSVs)
+        try {
+          const decoder = new TextDecoder('euc-kr');
+          text = decoder.decode(buffer);
+        } catch (e2) {
+          alert('파일 인코딩을 확인할 수 없습니다. (UTF-8 또는 EUC-KR만 지원)');
+          return;
+        }
+      }
+
+      try {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
         // Skip header
         const dataLines = lines.slice(1);
 
         const newRecords: DividendRecord[] = dataLines.map((line, idx) => {
-          const cols = line.split(',');
+          const cols = parseCSVLine(line);
           // Allow for empty trailing columns if CSV is sloppy
           if (cols.length < 6) throw new Error(`Line ${idx + 2} format invalid`);
+
+          // Function to safely parse numbers removing commas
+          const parseNum = (val: string) => {
+            if (!val) return 0;
+            return Number(val.replace(/,/g, ''));
+          };
 
           return {
             id: crypto.randomUUID(),
             date: normalizeImportDate(cols[0]),
             stockName: cols[1].trim(),
-            quantity: Number(cols[2]),
-            currentPrice: Number(cols[3]),
-            dividendPerShare: Number(cols[4]),
-            taxBase: Number(cols[5]),
+            quantity: parseNum(cols[2]),
+            currentPrice: parseNum(cols[3]),
+            dividendPerShare: parseNum(cols[4]),
+            taxBase: parseNum(cols[5]),
             // Default calculated fields to 0, will be fixed by recalculatePortfolio
             priceChange: 0,
             dividendChange: 0,
@@ -467,7 +515,7 @@ const App: React.FC = () => {
       // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const executeImport = () => {

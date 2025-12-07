@@ -84,23 +84,57 @@ export const AssetConfig: React.FC = () => {
         return results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [records, searchQuery]);
 
-    // Stats Calculation (use filtered records)
+    // Stats Calculation (Calculate Portfolio Holdings based on transactions)
     const stats = useMemo(() => {
-        const krwTotal = filteredRecords
-            .filter(r => r.country === 'KOR' || (!r.country))
-            .reduce((sum, r) => sum + (r.amount || 0), 0);
+        // Group by ID (Symbol + Account) to calculate positions
+        const positionMap = new Map<string, { qty: number, cost: number, country: string }>();
 
-        // For USD, we sum amounts. Assumption: Amount is in USD for USA stocks.
-        const usdTotal = filteredRecords
-            .filter(r => r.country === 'USA')
-            .reduce((sum, r) => sum + (r.amount || 0), 0);
+        // Sort by date ascending for accurate FIFO/AvgCost calculation
+        const sorted = [...filteredRecords].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        sorted.forEach(r => {
+            const key = `${r.name}_${r.accountNumber || 'N/A'}`;
+            if (!positionMap.has(key)) {
+                positionMap.set(key, { qty: 0, cost: 0, country: r.country });
+            }
+            const pos = positionMap.get(key)!;
+
+            if (r.tradeType === '매수') {
+                pos.qty += r.quantity;
+                pos.cost += r.amount; // Buy Amount
+            } else if (r.tradeType === '매도') {
+                if (pos.qty > 0) {
+                    const avgCost = pos.cost / pos.qty;
+                    // Reduce cost proportionally
+                    pos.cost -= avgCost * r.quantity;
+                    pos.qty -= r.quantity;
+                }
+                // If we sell more than we have, cost goes to 0 or negative? 
+                // Validation in Form prevents this, but here we should clamp to 0 safety
+                if (pos.qty < 0) { pos.qty = 0; pos.cost = 0; }
+            }
+            // Update country if needed (unlikely to change)
+        });
+
+        let krwTotal = 0;
+        let usdTotal = 0;
+
+        positionMap.forEach(pos => {
+            if (pos.qty > 0) { // Only count current holdings
+                if (pos.country === 'USA') {
+                    usdTotal += pos.cost;
+                } else {
+                    krwTotal += pos.cost;
+                }
+            }
+        });
 
         // Convert USD to KRW using real-time exchange rate
         const usdInKrw = usdTotal * exchangeRate;
         const grandTotal = krwTotal + usdInKrw;
 
         return { krwTotal, usdTotal, grandTotal };
-    }, [records, exchangeRate]);
+    }, [filteredRecords, exchangeRate]);
 
     // Helper: parse number from various formats (with/without comma, currency symbols)
     const parseNumber = (value: string | undefined): number => {

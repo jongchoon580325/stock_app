@@ -46,17 +46,44 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick, isF
   const summary = useMemo(() => {
     if (records.length === 0) return null;
 
-    const totalQuantity = records.reduce((sum, r) => sum + r.quantity, 0);
-    const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
-    const averagePrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
+    // Sort records by date ascending for correct Avg Cost calculation logic
+    // Note: 'records' here is 'filteredRecords' passed from parent, which is currently sorted by date DESC in AssetConfig.
+    // So we need to reverse or sort it ASC.
+    const sortedRecords = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let netQty = 0;
+    let netCost = 0; // Total Cost Basis of current holdings
+    let totalBuyAmount = 0;
+    let totalSellAmount = 0;
+
+    sortedRecords.forEach(r => {
+      if (r.tradeType === '매수') {
+        netQty += r.quantity;
+        netCost += r.amount;
+        totalBuyAmount += r.amount;
+      } else if (r.tradeType === '매도') {
+        totalSellAmount += (r.sellAmount || 0);
+        if (netQty > 0) {
+          const avgCost = netCost / netQty;
+          // Reduce cost basis proportionally
+          netCost -= avgCost * r.quantity;
+          netQty -= r.quantity;
+        }
+        // Clamp to 0 just in case
+        if (netQty < 0) { netQty = 0; netCost = 0; }
+      }
+    });
+
+    const averagePrice = netQty > 0 ? netCost / netQty : 0;
 
     // Determine currency based on first record's country (assume same currency in filtered results)
     const country = records[0]?.country || 'KOR';
 
     return {
       averagePrice,
-      totalQuantity,
-      totalAmount,
+      totalQuantity: netQty, // Show Net Holding Qty
+      totalAmount: totalBuyAmount, // Show Total Cash Outflow (Buy)
+      totalSellAmount, // Show Total Cash Inflow (Sell)
       country
     };
   }, [records]);
@@ -177,7 +204,11 @@ export const AssetTable: React.FC<AssetTableProps> = ({ records, onRowClick, isF
                   <div className="text-xs text-slate-500 mb-1">매수총금액</div>
                   {formatCurrency(summary.totalAmount, summary.country)}
                 </td>
-                <td colSpan={2}></td>
+                <td className="px-4 py-3 text-right font-bold text-blue-700">
+                  <div className="text-xs text-slate-500 mb-1">매도총금액</div>
+                  {formatCurrency(summary.totalSellAmount, summary.country)}
+                </td>
+                <td colSpan={1}></td>
               </tr>
             )}
           </tbody>

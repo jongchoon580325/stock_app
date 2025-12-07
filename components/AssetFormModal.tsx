@@ -71,14 +71,26 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         }
     }, [initialData, isOpen]);
 
-    // Auto-calculate amount when price or quantity changes
+    // Auto-calculate amount when price or quantity or tradeType changes
     useEffect(() => {
         if (!isOpen) return;
-        const calculatedAmount = formData.price * formData.quantity;
-        if (formData.amount !== calculatedAmount) {
-            setFormData(prev => ({ ...prev, amount: calculatedAmount }));
+        const totalVal = formData.price * formData.quantity;
+
+        if (formData.tradeType === '매수') {
+            setFormData(prev => ({
+                ...prev,
+                amount: totalVal,
+                sellAmount: 0
+            }));
+        } else {
+            // Sell
+            setFormData(prev => ({
+                ...prev,
+                amount: 0,
+                sellAmount: totalVal
+            }));
         }
-    }, [formData.price, formData.quantity, isOpen]);
+    }, [formData.price, formData.quantity, formData.tradeType, isOpen]);
 
     if (!isOpen) return null;
 
@@ -92,6 +104,31 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation for SELL logic
+        if (formData.tradeType === '매도') {
+            // Calculate current holding qty for this stock/account
+            const targetName = formData.name.trim();
+            const targetAccount = formData.accountNumber?.trim() || '';
+
+            const relevantRecords = existingRecords.filter(r =>
+                r.name === targetName &&
+                (r.accountNumber || '') === targetAccount &&
+                r.id !== (initialData?.id || '') // Exclude self if editing
+            );
+
+            const totalBuy = relevantRecords.filter(r => r.tradeType === '매수').reduce((sum, r) => sum + r.quantity, 0);
+            const totalSell = relevantRecords.filter(r => r.tradeType === '매도').reduce((sum, r) => sum + r.quantity, 0);
+            const currentQty = totalBuy - totalSell;
+
+            if (formData.quantity > currentQty) {
+                alert(`매도 가능 수량을 초과했습니다.\n(현재 보유: ${currentQty.toLocaleString()}주 / 입력: ${formData.quantity.toLocaleString()}주)`);
+                return;
+            }
+        }
+
+        const totalVal = formData.price * formData.quantity;
+
         onSave({
             ...formData,
             broker: formData.broker.trim(),
@@ -101,6 +138,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             country: (formData.country.trim() as 'USA' | 'KOR') || 'USA',
             accountType: (formData.accountType.trim() as any) || '일반계좌',
             id: initialData?.id || crypto.randomUUID(),
+            // Enforce logic one last time
+            amount: formData.tradeType === '매수' ? totalVal : 0,
+            sellAmount: formData.tradeType === '매도' ? totalVal : 0,
         });
     };
 
@@ -398,7 +438,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                             <h3 className="text-sm font-bold text-slate-800 border-l-4 border-fuchsia-500 pl-2">거래 상세</h3>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label className={labelClass}>매입단가</label>
+                                    <label className={labelClass}>
+                                        {formData.tradeType === '매도' ? '매도단가' : '매입단가'}
+                                    </label>
                                     <input
                                         type="number"
                                         name="price"
@@ -427,19 +469,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                         name="amount"
                                         value={formData.amount}
                                         readOnly
-                                        className={readOnlyClass}
+                                        className={`${readOnlyClass} ${formData.tradeType === '매도' ? 'text-slate-500' : 'text-slate-300'}`}
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>매도금액</label>
+                                    <label className={labelClass}>매도금액 (자동)</label>
                                     <input
                                         type="number"
                                         name="sellAmount"
-                                        value={formData.sellAmount || ''}
-                                        onChange={handleChange}
-                                        step="0.01"
-                                        placeholder="0"
-                                        className={inputClass}
+                                        value={formData.sellAmount || 0}
+                                        readOnly
+                                        className={`${readOnlyClass} ${formData.tradeType === '매수' ? 'text-slate-500' : 'text-slate-300'}`}
                                     />
                                 </div>
                             </div>
