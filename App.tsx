@@ -752,6 +752,7 @@ const App: React.FC = () => {
               records={filteredRecords}
               onRowClick={openEditModal}
               accountType={accountType}
+              isFiltered={!!searchQuery.trim()}
             />
           </>
         )}

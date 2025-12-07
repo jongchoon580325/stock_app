@@ -1,14 +1,31 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { DividendRecord, AccountType } from '../types';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface DividendTableProps {
   records: DividendRecord[];
   onRowClick: (record: DividendRecord) => void;
   accountType: AccountType;
+  isFiltered?: boolean;
 }
 
-export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClick, accountType }) => {
+export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClick, accountType, isFiltered = false }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [showSummary, setShowSummary] = useState(false);
+
+  // Show summary 2 seconds after records change (only when filtered)
+  useEffect(() => {
+    setShowSummary(false);
+    if (isFiltered && records.length > 0) {
+      const timer = setTimeout(() => {
+        setShowSummary(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [records, isFiltered]);
+
   const formatNumber = (num: number) => new Intl.NumberFormat('ko-KR').format(num);
 
   // Helper to determine text color for changes
@@ -72,6 +89,17 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
     return { totalQuantity, totalGross, averagePrice };
   }, [enrichedRecords]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(enrichedRecords.length / itemsPerPage);
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return enrichedRecords.slice(startIndex, startIndex + itemsPerPage);
+  }, [enrichedRecords, currentPage, itemsPerPage]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
   return (
     <div className="w-full overflow-x-auto border border-slate-400 shadow-sm">
       <table className="w-full min-w-[1000px] text-sm border-collapse bg-white">
@@ -97,7 +125,7 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
           </tr>
         </thead>
         <tbody>
-          {enrichedRecords.map((record, index) => {
+          {paginatedRecords.map((record, index) => {
             const monthlyTotal = getMonthlyTotal(index, record);
             const isLastRow = index === enrichedRecords.length - 1;
 
@@ -154,7 +182,8 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
 
         {/* Summary Footer displayed as part of table body/footer depending on structure, here inside tbody just like AssetTable or after rows */}
         {/* Actually AssetTable puts it INSIDE tbody. Let's do same. */}
-        {summary && (
+        {/* Summary Footer: Only show if showSummary is true AND summary exists */}
+        {showSummary && summary && (
           <tfoot className="bg-red-50 border-t-2 border-red-200">
             <tr>
               {/* Spacers for Date, Name */}
@@ -187,6 +216,94 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
           </tfoot>
         )}
       </table>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 mt-auto">
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-600">
+            {enrichedRecords.length}건 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, enrichedRecords.length)} 표시
+          </div>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value={10}>10개씩</option>
+            <option value={20}>20개씩</option>
+            <option value={30}>30개씩</option>
+          </select>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => goToPage(1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="처음"
+            >
+              <ChevronsLeft className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="이전"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`px-3 py-1 text-sm rounded ${currentPage === pageNum
+                      ? 'bg-indigo-600 text-white font-medium'
+                      : 'hover:bg-slate-200 text-slate-700'
+                      }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="다음"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="끝"
+            >
+              <ChevronsRight className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
+        )}
+      </div>
     </div >
   );
 };
+
