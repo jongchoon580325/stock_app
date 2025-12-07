@@ -56,6 +56,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         return Array.from(new Set(stocks)).sort();
     }, [existingRecords, formData.country]);
 
+    // Extract unique account numbers
+    const uniqueAccountNumbers = React.useMemo(() => {
+        const accounts = new Set(existingRecords.map(r => r.accountNumber).filter(a => a));
+        return Array.from(accounts).sort();
+    }, [existingRecords]);
+
     useEffect(() => {
         if (initialData) {
             const { id, ...rest } = initialData;
@@ -88,6 +94,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         e.preventDefault();
         onSave({
             ...formData,
+            broker: formData.broker.trim(),
+            name: formData.name.trim(),
+            accountNumber: formData.accountNumber?.trim() || '',
+            stockType: formData.stockType.trim() || '개별주식',
+            country: (formData.country.trim() as 'USA' | 'KOR') || 'USA',
+            accountType: (formData.accountType.trim() as any) || '일반계좌',
             id: initialData?.id || crypto.randomUUID(),
         });
     };
@@ -142,17 +154,71 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className={labelClass}>주식구분</label>
-                                    <select name="stockType" value={formData.stockType} onChange={handleChange} className={selectClass}>
+                                    <select
+                                        name="stockType"
+                                        value={['개별주식', 'ETF주식'].includes(formData.stockType) ? formData.stockType : (formData.stockType ? '__custom__' : '')}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, stockType: '' }));
+                                            else handleChange(e);
+                                        }}
+                                        className={selectClass}
+                                    >
                                         <option value="개별주식">개별주식</option>
                                         <option value="ETF주식">ETF주식</option>
+                                        <option value="__custom__">직접 입력...</option>
                                     </select>
+                                    {!['개별주식', 'ETF주식', ''].includes(formData.stockType) && (
+                                        <input
+                                            type="text"
+                                            name="stockType"
+                                            value={formData.stockType}
+                                            onChange={handleChange}
+                                            placeholder="주식구분 입력"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
+                                    {/* Handle case where user just selected custom but value is empty */}
+                                    {formData.stockType === '' && (
+                                        <input
+                                            type="text"
+                                            name="stockType"
+                                            value=""
+                                            onChange={handleChange}
+                                            placeholder="주식구분 입력"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelClass}>국가</label>
-                                    <select name="country" value={formData.country} onChange={handleChange} className={selectClass}>
+                                    <select
+                                        name="country"
+                                        value={['USA', 'KOR'].includes(formData.country) ? formData.country : (formData.country ? '__custom__' : '')}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, country: 'USA' })); // Default fallback or empty? Let's treat unsafe typing carefully.
+                                            // Actually for country, changing it affects currency.
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, country: '' as any }));
+                                            else handleChange(e);
+                                        }}
+                                        className={selectClass}
+                                    >
                                         <option value="USA">USA</option>
                                         <option value="KOR">KOR</option>
+                                        <option value="__custom__">직접 입력...</option>
                                     </select>
+                                    {!['USA', 'KOR'].includes(formData.country) && (
+                                        <input
+                                            type="text"
+                                            name="country"
+                                            value={formData.country}
+                                            onChange={handleChange}
+                                            placeholder="국가 코드 입력 (예: JPN)"
+                                            className={`${inputClass} mt-2`}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                                 <div>
                                     <label className={labelClass}>거래일</label>
@@ -172,10 +238,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                 <div>
                                     <label className={labelClass}>증권사</label>
                                     <select
-                                        required
                                         name="broker"
-                                        value={formData.broker}
-                                        onChange={handleChange}
+                                        value={uniqueBrokers.includes(formData.broker) ? formData.broker : (formData.broker && formData.broker.trim() !== '' ? '__custom__' : '')}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__custom__') setFormData(p => ({ ...p, broker: ' ' })); // Space hack to trigger input
+                                            else handleChange(e);
+                                        }}
                                         className={selectClass}
                                     >
                                         <option value="">증권사 선택</option>
@@ -184,12 +252,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                                         ))}
                                         <option value="__custom__">직접 입력...</option>
                                     </select>
-                                    {formData.broker === '__custom__' && (
+                                    {/* Show input if custom (not in list) and not empty (or is space hack) */}
+                                    {((!uniqueBrokers.includes(formData.broker) && formData.broker !== '') || formData.broker === ' ') && (
                                         <input
-                                            required
                                             type="text"
                                             name="broker"
-                                            value=""
+                                            value={formData.broker === ' ' ? '' : formData.broker}
                                             onChange={handleChange}
                                             placeholder="증권사명 입력"
                                             className={`${inputClass} mt-2`}

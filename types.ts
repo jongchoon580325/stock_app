@@ -2,13 +2,13 @@ export type AccountType = 'general' | 'tax-free' | 'asset-config';
 
 export interface AssetRecord {
   id: string;
-  stockType: '개별주식' | 'ETF주식';
-  country: 'USA' | 'KOR';
+  stockType: '개별주식' | 'ETF주식' | string;
+  country: 'USA' | 'KOR' | string;
   date: string;
   broker: string;
   name: string;
   accountNumber?: string;
-  accountType: '일반계좌' | 'ISA' | '연금저축계좌' | '비과세저축계좌' | '일반배당계좌';
+  accountType: '일반계좌' | 'ISA' | '연금저축계좌' | '비과세저축계좌' | '일반배당계좌' | string;
   tradeType: '매수' | '매도';
   dividendCycle: string;
   price: number;
