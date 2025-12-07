@@ -56,9 +56,13 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
   }, [records]);
 
   // Rule 6: Function to calculate monthly sum of 'Total Net'
-  const getMonthlyTotal = (index: number, currentRecord: typeof enrichedRecords[0]) => {
-    const currentMonth = currentRecord.date.substring(0, 7); // YYYY-MM
-    const nextRecord = enrichedRecords[index + 1];
+  // Fix: Find original index from enrichedRecords using record.id
+  const getMonthlyTotal = (record: typeof enrichedRecords[0]) => {
+    const currentMonth = record.date.substring(0, 7); // YYYY-MM
+
+    // Find the original index in enrichedRecords
+    const originalIndex = enrichedRecords.findIndex(r => r.id === record.id);
+    const nextRecord = enrichedRecords[originalIndex + 1];
     const nextMonth = nextRecord ? nextRecord.date.substring(0, 7) : null;
 
     // Display total only on the last row of the month
@@ -126,8 +130,8 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
         </thead>
         <tbody>
           {paginatedRecords.map((record, index) => {
-            const monthlyTotal = getMonthlyTotal(index, record);
-            const isLastRow = index === enrichedRecords.length - 1;
+            const monthlyTotal = getMonthlyTotal(record);
+            const isLastRow = index === paginatedRecords.length - 1;
 
             return (
               <tr
