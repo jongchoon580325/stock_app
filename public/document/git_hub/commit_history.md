@@ -1,5 +1,9 @@
 # Commit History
 
+## 17. [2025-12-08 17:25] Commit: 938d943
+
+   **Title:** feat: Enhance Tax Simulator with RP exception, PDF font fix, Price API, and Reset
+
 ## 16. [2025-12-08 14:55] Commit: 35ea58d
 
    **Title:** feat: Implement US Stock Tax Simulator logic and UI
