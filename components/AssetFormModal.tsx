@@ -105,6 +105,15 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Validation for Exchange Rate (US Stock + Buy)
+        // Simulator requires historical exchange rate for accurate tax calculation
+        if (formData.country === 'USA' && formData.tradeType === '매수') {
+            if (!formData.exchangeRate || formData.exchangeRate <= 0) {
+                alert('미국주식 매수 시 [적용환율] 입력은 필수입니다.\n(세금 시뮬레이션의 정확한 원가 계산을 위해 필요합니다)');
+                return;
+            }
+        }
+
         // Validation for SELL logic
         if (formData.tradeType === '매도') {
             // Calculate current holding qty for this stock/account

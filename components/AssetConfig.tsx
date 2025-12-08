@@ -5,6 +5,8 @@ import { AssetTable } from './AssetTable';
 import { ASSET_SAMPLE_RECORDS } from '../constants';
 import { NotificationModal } from './NotificationModal';
 import { AssetFormModal } from './AssetFormModal';
+import { TaxSimulator } from './TaxSimulator';
+import { Calculator, LayoutList } from 'lucide-react';
 
 export const AssetConfig: React.FC = () => {
     const [records, setRecords] = useState<AssetRecord[]>([]);
@@ -12,11 +14,16 @@ export const AssetConfig: React.FC = () => {
     const [importWarningOpen, setImportWarningOpen] = useState(false);
     const [importSuccessOpen, setImportSuccessOpen] = useState(false);
     const [pendingImportRecords, setPendingImportRecords] = useState<AssetRecord[]>([]);
+    // Data Integrity State
+    const [missingExchangeRateCount, setMissingExchangeRateCount] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Modal state for asset form
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<AssetRecord | null>(null);
+
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'assets' | 'simulator'>('assets');
 
     // Search state
     const [searchQuery, setSearchQuery] = useState('');
@@ -30,7 +37,17 @@ export const AssetConfig: React.FC = () => {
         const saved = localStorage.getItem('asset_config_data');
         if (saved) {
             try {
-                setRecords(JSON.parse(saved));
+                const loaded = JSON.parse(saved);
+                setRecords(loaded);
+
+                // DATA HEALTH CHECK: Check for US Buy records with 0 exchange rate
+                const badCount = loaded.filter((r: AssetRecord) =>
+                    r.country === 'USA' &&
+                    r.tradeType === '매수' &&
+                    (!r.exchangeRate || r.exchangeRate <= 0)
+                ).length;
+                setMissingExchangeRateCount(badCount);
+
             } catch (e) {
                 console.error('Failed to parse asset data', e);
             }
@@ -316,6 +333,7 @@ export const AssetConfig: React.FC = () => {
                 alert('CSV 파일 형식이 올바르지 않습니다.\n' + err);
                 console.error(err);
             }
+            // Warn if imported data has missing exchange rates
             if (fileInputRef.current) fileInputRef.current.value = '';
         };
         reader.readAsArrayBuffer(file);
@@ -323,6 +341,15 @@ export const AssetConfig: React.FC = () => {
 
     const executeImport = () => {
         setRecords(pendingImportRecords);
+
+        // Re-check health after import
+        const badCount = pendingImportRecords.filter(r =>
+            r.country === 'USA' &&
+            r.tradeType === '매수' &&
+            (!r.exchangeRate || r.exchangeRate <= 0)
+        ).length;
+        setMissingExchangeRateCount(badCount);
+
         setImportWarningOpen(false);
         setImportSuccessOpen(true);
         setPendingImportRecords([]);
@@ -330,6 +357,7 @@ export const AssetConfig: React.FC = () => {
 
     const handleReset = () => {
         setRecords([]);
+        setMissingExchangeRateCount(0); // Reset warning
         setResetWarningOpen(false);
     };
 
@@ -373,6 +401,23 @@ export const AssetConfig: React.FC = () => {
                 initialData={editingRecord}
                 existingRecords={records}
             />
+
+            {/* Data Health Check Warning Banner */}
+            {missingExchangeRateCount > 0 && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                    <div className="p-1 bg-amber-100 rounded-full text-amber-600 mt-0.5">
+                        <Search className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-amber-800">환율 정보 누락 감지</h4>
+                        <p className="text-xs text-amber-700 mt-1">
+                            미국주식 매수 내역 중 <strong>{missingExchangeRateCount}건</strong>의 적용환율 정보가 누락되어 있습니다.<br />
+                            정확한 양도세 시뮬레이션을 위해 해당 내역을 수정하여 환율을 입력해주세요.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* 1. Dashboard Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Total Assets */}
@@ -415,80 +460,112 @@ export const AssetConfig: React.FC = () => {
                 </div>
             </div>
 
-            {/* 2. Control Bar */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="자산 검색 (종목명, 증권사)"
-                        className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
-                    />
-                </div>
-
-                <div className="flex gap-2 w-full sm:w-auto">
-                    {/* Hidden File Input */}
-                    <input
-                        type="file"
-                        accept=".csv"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
-
-                    <button
-                        onClick={handleDownloadSample}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-md text-sm font-medium transition-colors border border-emerald-200"
-                    >
-                        <Download className="w-4 h-4" />
-                        샘플 양식
-                    </button>
-
-                    <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
-
-                    <button
-                        onClick={handleExportCSV}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm font-medium transition-colors border border-slate-200"
-                    >
-                        <Download className="w-4 h-4" />
-                        내보내기
-                    </button>
-
-                    <button
-                        onClick={handleImportClick}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm font-medium transition-colors border border-slate-200"
-                    >
-                        <Upload className="w-4 h-4" />
-                        가져오기
-                    </button>
-
-                    <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
-
-                    <button
-                        onClick={() => setResetWarningOpen(true)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium transition-colors border border-red-200"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        초기화
-                    </button>
-                    <button
-                        onClick={openAddModal}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-md hover:bg-slate-700 transition-colors shadow-sm ml-2"
-                    >
-                        <PlusCircle className="w-4 h-4" />
-                        자산 등록
-                    </button>
-                </div>
+            {/* Tab Navigation */}
+            <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-fit">
+                <button
+                    onClick={() => setActiveTab('assets')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'assets'
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                >
+                    <LayoutList className="w-4 h-4" />
+                    자산 관리
+                </button>
+                <button
+                    onClick={() => setActiveTab('simulator')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'simulator'
+                            ? 'bg-white text-indigo-800 shadow-sm'
+                            : 'text-slate-500 hover:text-indigo-600'
+                        }`}
+                >
+                    <Calculator className="w-4 h-4" />
+                    절세 시뮬레이터
+                </button>
             </div>
 
-            {/* 3. Data Table */}
-            <AssetTable
-                records={filteredRecords}
-                onRowClick={openEditModal}
-                isFiltered={searchQuery.trim().length > 0}
-            />
+            {activeTab === 'assets' ? (
+                <>
+                    {/* 2. Control Bar */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="자산 검색 (종목명, 증권사)"
+                                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500"
+                            />
+                        </div>
+
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            {/* Hidden File Input */}
+                            <input
+                                type="file"
+                                accept=".csv"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                            />
+
+                            <button
+                                onClick={handleDownloadSample}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-md text-sm font-medium transition-colors border border-emerald-200"
+                            >
+                                <Download className="w-4 h-4" />
+                                샘플 양식
+                            </button>
+
+                            <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
+
+                            <button
+                                onClick={handleExportCSV}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm font-medium transition-colors border border-slate-200"
+                            >
+                                <Download className="w-4 h-4" />
+                                내보내기
+                            </button>
+
+                            <button
+                                onClick={handleImportClick}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md text-sm font-medium transition-colors border border-slate-200"
+                            >
+                                <Upload className="w-4 h-4" />
+                                가져오기
+                            </button>
+
+                            <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
+
+                            <button
+                                onClick={() => setResetWarningOpen(true)}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium transition-colors border border-red-200"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                                초기화
+                            </button>
+                            <button
+                                onClick={openAddModal}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-md hover:bg-slate-700 transition-colors shadow-sm ml-2"
+                            >
+                                <PlusCircle className="w-4 h-4" />
+                                자산 등록
+                            </button>
+                        </div>
+                    </div>
+
+                    <AssetTable
+                        records={filteredRecords}
+                        onRowClick={openEditModal}
+                        isFiltered={searchQuery.trim().length > 0}
+                    />
+                </>
+            ) : (
+                <TaxSimulator
+                    records={records}
+                    currentFxRate={exchangeRate}
+                />
+            )}
 
             <NotificationModal
                 isOpen={resetWarningOpen}
