@@ -1,5 +1,9 @@
 # Commit History
 
+## 16. [2025-12-08 14:55] Commit: 35ea58d
+
+   **Title:** feat: Implement US Stock Tax Simulator logic and UI
+
 ## 15. [2025-12-08 05:25] Commit: b10e056
 
    **Title:** fix: Monthly total only shows on last row of each month (pagination fix)
