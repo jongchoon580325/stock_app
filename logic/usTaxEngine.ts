@@ -25,8 +25,9 @@ export interface RealizedGainByYear {
  */
 export const calculateRealizedGainByYear = (records: AssetRecord[]): RealizedGainByYear[] => {
     // 1. Filter US Stocks & Sort by Date (Past -> Future)
+    // EXCEPTION: Exclude '외화-RP' (Foreign Currency RP) from tax calculations
     const usRecords = records
-        .filter(r => r.country === 'USA')
+        .filter(r => r.country === 'USA' && r.name !== '외화-RP')
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // 2. Track Inventory per Symbol
@@ -139,8 +140,9 @@ export interface PortfolioItem {
  */
 export const calculateCurrentPortfolio = (records: AssetRecord[]): Map<string, PortfolioItem> => {
     // 1. Filter US Stocks & Sort by Date
+    // EXCEPTION: Exclude '외화-RP' (Foreign Currency RP) from simulator inventory
     const usRecords = records
-        .filter(r => r.country === 'USA')
+        .filter(r => r.country === 'USA' && r.name !== '외화-RP')
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // 2. Track Inventory

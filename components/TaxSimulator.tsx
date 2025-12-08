@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Calculator, TrendingUp, DollarSign, Download, Loader2, Settings, RefreshCw, RotateCcw } from 'lucide-react';
 import { AssetRecord } from '../types';
 import { calculateCurrentPortfolio, calculateRealizedGainByYear, PortfolioItem } from '../logic/usTaxEngine';
 import { buildExemptionSafePlan, buildTargetAmountPlan, StrategyPlan } from '../logic/taxStrategyService';
-import { Calculator, RefreshCw, TrendingUp, DollarSign } from 'lucide-react';
+import { generateTaxReport } from '../logic/taxReportService'; // Import Report Service
+import { fetchBatchPrices } from '../logic/stockPriceService'; // Import Stock Price Service
+
 import { NotificationModal } from './NotificationModal';
 
 interface TaxSimulatorProps {
@@ -15,6 +18,11 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
     const [priceMap, setPriceMap] = useState<Map<string, number>>(new Map());
     const [targetAmount, setTargetAmount] = useState<number>(0);
     const [simulatedPlan, setSimulatedPlan] = useState<StrategyPlan | null>(null);
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false); // Report Loading State
+    const [isFetchingPrices, setIsFetchingPrices] = useState(false); // Price Fetching State
+
+    // API Key State (Persist in LocalStorage logic would be in useEffect, but let's lazy init)
+    const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('finnhubApiKey') || '');
 
     // Initial Data Loading
     const { inventory, realizedSummary } = useMemo(() => {
@@ -54,16 +62,87 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
         });
     };
 
+    const handleSetApiKey = () => {
+        const newKey = prompt("Finnhub API Key를 입력해주세요.\n(https://finnhub.io 에서 무료 발급 가능)", apiKey);
+        if (newKey !== null) {
+            setApiKey(newKey.trim());
+            localStorage.setItem('finnhubApiKey', newKey.trim());
+        }
+    };
+
     const handleAutoFillPrices = async () => {
-        // Here we could fetch real prices via API if available.
-        // For now, let's just use a dummy fill or alert?
-        // Since we don't have a backend for stock prices, we rely on manual input.
-        alert("실시간 주가 조회 API 연동이 필요합니다.\n현재는 직접 입력해주세요.");
+        if (!apiKey) {
+            if (confirm("API Key가 설정되지 않았습니다.\n키를 등록하시겠습니까?")) {
+                handleSetApiKey();
+            }
+            return;
+        }
+
+        setIsFetchingPrices(true);
+        try {
+            const symbols = Array.from(inventory.keys());
+            // Filter out validation skipped items? No, logic handles it.
+
+            const fetchedPrices = await fetchBatchPrices(symbols, apiKey);
+
+            let updateCount = 0;
+            setPriceMap(prev => {
+                const next = new Map(prev);
+                fetchedPrices.forEach((price, symbol) => {
+                    if (price > 0) {
+                        next.set(symbol, price);
+                        updateCount++;
+                    }
+                });
+                return next;
+            });
+
+            if (updateCount > 0) {
+                // alert(`${ updateCount }개 종목의 시세를 업데이트했습니다.`);
+            } else {
+                alert("업데이트할 시세 정보를 가져오지 못했습니다.\nAPI Key 확인 혹은 장 운영 시간을 확인해주세요.");
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("시세 조회 중 오류가 발생했습니다.");
+        } finally {
+            setIsFetchingPrices(false);
+        }
+    };
+
+    const handleDownloadReport = async () => {
+        if (!simulatedPlan) return;
+        await generateTaxReport(
+            simulatedPlan,
+            realizedSummary,
+            () => setIsGeneratingReport(true),
+            () => setIsGeneratingReport(false)
+        );
     };
 
     // --- Strategy Handlers ---
 
+    const validatePrices = (): boolean => {
+        // Check if any holding has 0 price
+        const missingPrices: string[] = [];
+        inventory.forEach((item, symbol) => {
+            const price = priceMap.get(symbol);
+            if (!price || price <= 0) {
+                missingPrices.push(symbol);
+            }
+        });
+
+        if (missingPrices.length > 0) {
+            alert(`다음 종목의 현재가(USD)가 입력되지 않았습니다: \n${missingPrices.join(', ')} \n\n왼쪽 목록에서 시세($)를 입력해주세요.`);
+            return false;
+        }
+        return true;
+    };
+
     const runExemptionStrategy = () => {
+        if (!validatePrices()) return;
+
         const plan = buildExemptionSafePlan(
             inventory,
             priceMap,
@@ -78,6 +157,8 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
             alert("목표 매도 금액을 입력해주세요.");
             return;
         }
+        if (!validatePrices()) return;
+
         const plan = buildTargetAmountPlan(
             inventory,
             priceMap,
@@ -172,7 +253,7 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                         </div>
                     </div>
                     <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                        <div className="text-xs font-bold text-slate-500 mb-1">예상 양도 소득세</div>
+                        <div className="text-xs font-bold text-red-600 mb-1">예상 양도 소득세</div>
                         <div className="text-lg font-bold text-red-600">
                             {simulatedPlan ? Math.round(simulatedPlan.totalTaxableDetail.finalTax).toLocaleString() : '-'}원
                         </div>
@@ -185,6 +266,18 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                         <h4 className="font-bold text-indigo-900 mb-1">절세 전략 시뮬레이션</h4>
                         <p className="text-sm text-indigo-700">원하는 전략을 선택하여 최적의 매도 플랜을 확인하세요.</p>
                     </div>
+
+                    {/* Reset Button */}
+                    <button
+                        onClick={() => {
+                            setSimulatedPlan(null);
+                            setTargetAmount(0);
+                        }}
+                        className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition-colors"
+                        title="시뮬레이션 결과 초기화"
+                    >
+                        <RotateCcw className="w-5 h-5" />
+                    </button>
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <button
@@ -202,6 +295,9 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                                 className="w-32 px-2 py-1 text-sm outline-none bg-transparent"
                                 value={targetAmount || ''}
                                 onChange={e => setTargetAmount(Number(e.target.value))}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') runTargetStrategy();
+                                }}
                             />
                             <button
                                 onClick={runTargetStrategy}
@@ -216,11 +312,34 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                 {/* 3. Results Table */}
                 <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                        <h4 className="font-bold text-slate-700">시뮬레이션 결과</h4>
+                        <div className="flex items-center gap-3">
+                            <h4 className="font-bold text-slate-700">시뮬레이션 결과</h4>
+                            {simulatedPlan && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
+                                    {simulatedPlan.strategyName}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Download PDF Button */}
                         {simulatedPlan && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
-                                {simulatedPlan.strategyName}
-                            </span>
+                            <button
+                                onClick={handleDownloadReport}
+                                disabled={isGeneratingReport}
+                                className="text-sm flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 disabled:opacity-50 transition-colors"
+                            >
+                                {isGeneratingReport ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        생성중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="w-4 h-4" />
+                                        PDF 리포트
+                                    </>
+                                )}
+                            </button>
                         )}
                     </div>
 
