@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Download, PlusCircle, RotateCcw, Search, Upload } from 'lucide-react';
+import { Download, PlusCircle, RotateCcw, Search, Upload, CloudUpload } from 'lucide-react';
+import { migrateDataToFirestore, MigrationResult } from '../logic/migrationService';
 import { AssetRecord } from '../types';
 import { AssetTable } from './AssetTable';
 import { ASSET_SAMPLE_RECORDS } from '../constants';
@@ -7,6 +8,14 @@ import { NotificationModal } from './NotificationModal';
 import { AssetFormModal } from './AssetFormModal';
 import { TaxSimulator } from './TaxSimulator';
 import { Calculator, LayoutList } from 'lucide-react';
+import {
+    subscribeToAssets,
+    saveAssetRecord,
+    deleteAssetRecord,
+    clearCollection,
+    batchSave,
+    COLLECTIONS
+} from '../services/firestoreService';
 
 export const AssetConfig: React.FC = () => {
     const [records, setRecords] = useState<AssetRecord[]>([]);
@@ -32,26 +41,28 @@ export const AssetConfig: React.FC = () => {
     const [exchangeRate, setExchangeRate] = useState(1470); // Default fallback
     const [isLoadingRate, setIsLoadingRate] = useState(true);
 
-    // Load from LocalStorage
+    // Migration Status
+    const [migrationLoading, setMigrationLoading] = useState(false);
+    const [migrationResult, setMigrationResult] = useState<{ success: boolean; msg: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Firestore Real-time Subscription for Asset Data
     useEffect(() => {
-        const saved = localStorage.getItem('asset_config_data');
-        if (saved) {
-            try {
-                const loaded = JSON.parse(saved);
-                setRecords(loaded);
+        setIsLoading(true);
+        const unsubscribe = subscribeToAssets((data) => {
+            setRecords(data);
 
-                // DATA HEALTH CHECK: Check for US Buy records with 0 exchange rate
-                const badCount = loaded.filter((r: AssetRecord) =>
-                    r.country === 'USA' &&
-                    r.tradeType === '매수' &&
-                    (!r.exchangeRate || r.exchangeRate <= 0)
-                ).length;
-                setMissingExchangeRateCount(badCount);
+            // DATA HEALTH CHECK: Check for US Buy records with 0 exchange rate
+            const badCount = data.filter((r: AssetRecord) =>
+                r.country === 'USA' &&
+                r.tradeType === '매수' &&
+                (!r.exchangeRate || r.exchangeRate <= 0)
+            ).length;
+            setMissingExchangeRateCount(badCount);
+            setIsLoading(false);
+        });
 
-            } catch (e) {
-                console.error('Failed to parse asset data', e);
-            }
-        }
+        return () => unsubscribe();
     }, []);
 
     // Fetch real-time USD/KRW exchange rate
@@ -65,24 +76,15 @@ export const AssetConfig: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Failed to fetch exchange rate:', error);
-                // Keep default fallback rate
             } finally {
                 setIsLoadingRate(false);
             }
         };
 
         fetchExchangeRate();
-        // Refresh every 10 minutes
         const interval = setInterval(fetchExchangeRate, 10 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
-
-    // Save to LocalStorage (skip initial empty save)
-    useEffect(() => {
-        if (records.length > 0) {
-            localStorage.setItem('asset_config_data', JSON.stringify(records));
-        }
-    }, [records]);
 
     // Filter records based on search query and sort by date (newest first)
     const filteredRecords = useMemo(() => {
@@ -339,26 +341,58 @@ export const AssetConfig: React.FC = () => {
         reader.readAsArrayBuffer(file);
     };
 
-    const executeImport = () => {
-        setRecords(pendingImportRecords);
+    const executeImport = async () => {
+        try {
+            // Clear existing and batch save new data to Firestore
+            await clearCollection(COLLECTIONS.assetConfig);
+            await batchSave(COLLECTIONS.assetConfig, pendingImportRecords);
 
-        // Re-check health after import
-        const badCount = pendingImportRecords.filter(r =>
-            r.country === 'USA' &&
-            r.tradeType === '매수' &&
-            (!r.exchangeRate || r.exchangeRate <= 0)
-        ).length;
-        setMissingExchangeRateCount(badCount);
+            // Re-check health after import
+            const badCount = pendingImportRecords.filter(r =>
+                r.country === 'USA' &&
+                r.tradeType === '매수' &&
+                (!r.exchangeRate || r.exchangeRate <= 0)
+            ).length;
+            setMissingExchangeRateCount(badCount);
 
-        setImportWarningOpen(false);
-        setImportSuccessOpen(true);
-        setPendingImportRecords([]);
+            setImportWarningOpen(false);
+            setImportSuccessOpen(true);
+            setPendingImportRecords([]);
+        } catch (error) {
+            console.error('Import failed:', error);
+            alert('가져오기 실패: ' + error);
+            setImportWarningOpen(false);
+        }
     };
 
-    const handleReset = () => {
-        setRecords([]);
-        setMissingExchangeRateCount(0); // Reset warning
-        setResetWarningOpen(false);
+    const handleReset = async () => {
+        try {
+            await clearCollection(COLLECTIONS.assetConfig);
+            setMissingExchangeRateCount(0);
+            setResetWarningOpen(false);
+        } catch (error) {
+            console.error('Reset failed:', error);
+            alert('초기화 실패: ' + error);
+            setResetWarningOpen(false);
+        }
+    };
+
+    const handleMigration = async () => {
+        if (!confirm("로컬 데이터(브라우저 저장소)를 Firebase Cloud DB로 업로드하시겠습니까?\n이미 DB에 데이터가 있다면 중복될 수 있습니다.")) return;
+
+        setMigrationLoading(true);
+        try {
+            const result = await migrateDataToFirestore();
+            if (result.success) {
+                setMigrationResult({ success: true, msg: `총 ${result.count}건의 데이터가 성공적으로 클라우드에 저장되었습니다.` });
+            } else {
+                setMigrationResult({ success: false, msg: `오류가 발생했습니다: ${result.errors.join(', ')}` });
+            }
+        } catch (e: any) {
+            setMigrationResult({ success: false, msg: "알 수 없는 오류가 발생했습니다." });
+        } finally {
+            setMigrationLoading(false);
+        }
     };
 
     // Modal handlers
@@ -377,17 +411,23 @@ export const AssetConfig: React.FC = () => {
         setEditingRecord(null);
     };
 
-    const handleSaveRecord = (record: AssetRecord) => {
-        if (editingRecord) {
-            setRecords(records.map(r => r.id === record.id ? record : r));
-        } else {
-            setRecords([...records, record]);
+    const handleSaveRecord = async (record: AssetRecord) => {
+        try {
+            await saveAssetRecord(record);
+        } catch (error) {
+            console.error('Failed to save asset:', error);
+            alert('저장 실패: ' + error);
         }
         closeModal();
     };
 
-    const handleDeleteRecord = (id: string) => {
-        setRecords(records.filter(r => r.id !== id));
+    const handleDeleteRecord = async (id: string) => {
+        try {
+            await deleteAssetRecord(id);
+        } catch (error) {
+            console.error('Failed to delete asset:', error);
+            alert('삭제 실패: ' + error);
+        }
         closeModal();
     };
 
@@ -465,8 +505,8 @@ export const AssetConfig: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('assets')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'assets'
-                            ? 'bg-white text-slate-800 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     <LayoutList className="w-4 h-4" />
@@ -475,8 +515,8 @@ export const AssetConfig: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('simulator')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'simulator'
-                            ? 'bg-white text-indigo-800 shadow-sm'
-                            : 'text-slate-500 hover:text-indigo-600'
+                        ? 'bg-white text-indigo-800 shadow-sm'
+                        : 'text-slate-500 hover:text-indigo-600'
                         }`}
                 >
                     <Calculator className="w-4 h-4" />
@@ -537,6 +577,17 @@ export const AssetConfig: React.FC = () => {
 
                             <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
 
+                            <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
+
+                            <button
+                                onClick={handleMigration}
+                                disabled={migrationLoading}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-md text-sm font-medium transition-colors border border-indigo-200"
+                            >
+                                <CloudUpload className="w-4 h-4" />
+                                {migrationLoading ? '업로드...' : '클라우드 백업'}
+                            </button>
+
                             <button
                                 onClick={() => setResetWarningOpen(true)}
                                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium transition-colors border border-red-200"
@@ -592,6 +643,14 @@ export const AssetConfig: React.FC = () => {
                 type="success"
                 title="가져오기 완료"
                 message="자산 데이터를 성공적으로 불러왔습니다."
+                confirmLabel="확인"
+            />
+            <NotificationModal
+                isOpen={!!migrationResult}
+                onClose={() => setMigrationResult(null)}
+                type={migrationResult?.success ? "success" : "error"}
+                title={migrationResult?.success ? "업로드 성공" : "업로드 실패"}
+                message={migrationResult?.msg || ""}
                 confirmLabel="확인"
             />
         </div>

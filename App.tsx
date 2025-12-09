@@ -9,7 +9,16 @@ import { DividendFormModal } from './components/DividendFormModal';
 
 import { NotificationModal } from './components/NotificationModal';
 import { AssetConfig } from './components/AssetConfig';
-import { PlusCircle, LayoutDashboard, CalendarRange, ArrowRight, RotateCcw, Download, Upload, FileText, Search } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, CalendarRange, ArrowRight, RotateCcw, Download, Upload, FileText, Search, CloudUpload } from 'lucide-react';
+import { migrateDataToFirestore } from './logic/migrationService';
+import {
+  subscribeToDividends,
+  saveDividendRecord,
+  deleteDividendRecord,
+  clearCollection,
+  batchSave,
+  COLLECTIONS
+} from './services/firestoreService';
 
 const STORAGE_KEYS = {
   general: 'bunbae_manager_data_general',
@@ -65,125 +74,35 @@ const App: React.FC = () => {
     });
   };
 
-  // Initialize state with LocalStorage or constants
-  const [records, setRecords] = useState<DividendRecord[]>(() => {
-    try {
-      // Try loading General account data first (default)
-      const key = STORAGE_KEYS.general;
-      let savedData = localStorage.getItem(key);
-
-      // Migration: If general data is missing, check legacy key
-      if (!savedData) {
-        const legacyData = localStorage.getItem(STORAGE_KEYS.legacy);
-        if (legacyData) {
-          savedData = legacyData;
-        }
-      }
-
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        return recalculatePortfolio(parsed, 'general');
-      }
-    } catch (e) {
-      console.error("Failed to load local data", e);
-    }
-    return recalculatePortfolio(INITIAL_RECORDS, 'general');
-  });
+  // Initialize state - will be populated by Firestore subscription
+  const [records, setRecords] = useState<DividendRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- Search Logic ---
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load data when account type changes
+  // Firestore Real-time Subscription for Dividend Data
   useEffect(() => {
-    const loadData = () => {
-      try {
-        const key = accountType === 'general' ? STORAGE_KEYS.general : STORAGE_KEYS.taxFree;
-        let savedData = localStorage.getItem(key);
-
-        // Migration check for general if missing
-        if (accountType === 'general' && !savedData) {
-          const legacyData = localStorage.getItem(STORAGE_KEYS.legacy);
-          if (legacyData) savedData = legacyData;
-        }
-
-        if (savedData) {
-          const parsed = JSON.parse(savedData);
-          setRecords(recalculatePortfolio(parsed, accountType));
-          return;
-        }
-      } catch (e) {
-        console.error("Failed to load data for " + accountType, e);
-      }
-      // If no data found for this type, start empty (or initial for general if desired, but empty is better for new account)
-      // Exception: Keep INITIAL_RECORDS for General if it was never saved? 
-      // Simplified: If 'general' and empty, maybe use initial. If 'tax-free' and empty, use [].
-      if (accountType === 'general') {
-        // check if we really have no data or just failed. 
-        // For now, let's default to empty if not found, unless it's the very first run which the useState handled.
-        // Actually, this useEffect runs on mount too? 
-        // No, dependency [accountType]. On mount accountType is 'general'.
-        // But we already initialized 'records' in useState. 
-        // We should avoid double loading on mount. 
-        // We can use a ref to skip first render if needed, or just let it be.
-        // But wait, useState initialized for 'general'. If we re-run this, it might be redundant but safe.
-        // However, we need to be careful not to overwrite if we just modified it?
-        // No, records state is the truth. Loading from LS overwrites state.
-        // So we should ONLY load when accountType *changes*.
-      } else {
-        setRecords([]);
-      }
-    };
-
-    // We only want to run this when accountType CHANGES.
-    // However, React effects run on mount. 
-    // We can check if the current records match the account type logic or just use a ref.
-    // Simplest: Just let it run. It reads from LS.
-  }, [accountType]);
-  // WAIT. If I put this useEffect here, it will overwrite any state changes I make if I'm not careful.
-  // Actually, standard pattern: 
-  // 1. Load from LS when `accountType` changes.
-  // 2. Save to LS when `records` changes (to the *current* accountType key).
-
-  // Revised approach inside the tool call: 
-  // I will only modify the useState to be simpler, and rely on an effect to load? 
-  // Or keep the useState for initial load, and an effect for switching.
-
-  // Let's refine the ReplacementContent below.
-
-  // 1. Data Loading Effect when Account Type changes (Only for dividend accounts)
-  useEffect(() => {
-    // Skip data loading for asset-config mode (it manages its own state)
-    if (accountType === 'asset-config') return;
-
-    const key = accountType === 'general' ? STORAGE_KEYS.general : STORAGE_KEYS.taxFree;
-    try {
-      let savedData = localStorage.getItem(key);
-      // Migration for general
-      if (accountType === 'general' && !savedData) {
-        const legacyData = localStorage.getItem(STORAGE_KEYS.legacy);
-        if (legacyData) savedData = legacyData;
-      }
-
-      if (savedData) {
-        setRecords(recalculatePortfolio(JSON.parse(savedData), accountType));
-      } else {
-        // No data for this account type
-        setRecords(accountType === 'general' ? recalculatePortfolio(INITIAL_RECORDS, 'general') : []);
-      }
-    } catch (e) {
-      console.error("Failed to switch account data", e);
-      setRecords([]);
+    // Skip for asset-config mode
+    if (accountType === 'asset-config') {
+      setIsLoading(false);
+      return;
     }
+
+    setIsLoading(true);
+    const unsubscribe = subscribeToDividends(
+      accountType as 'general' | 'tax-free',
+      (data) => {
+        // Recalculate derived fields on data load
+        const processed = recalculatePortfolio(data, accountType);
+        setRecords(processed);
+        setIsLoading(false);
+      }
+    );
+
+    // Cleanup subscription on unmount or account type change
+    return () => unsubscribe();
   }, [accountType]);
-
-  // 2. Save to LocalStorage whenever records change (Only for dividend accounts)
-  useEffect(() => {
-    // Skip saving for asset-config mode
-    if (accountType === 'asset-config') return;
-
-    const key = accountType === 'general' ? STORAGE_KEYS.general : STORAGE_KEYS.taxFree;
-    localStorage.setItem(key, JSON.stringify(records));
-  }, [records, accountType]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<DividendRecord | null>(null);
@@ -196,6 +115,10 @@ const App: React.FC = () => {
   const [importWarningOpen, setImportWarningOpen] = useState(false);
   const [importSuccessOpen, setImportSuccessOpen] = useState(false);
   const [pendingImportRecords, setPendingImportRecords] = useState<DividendRecord[]>([]);
+
+  // Migration States
+  const [migrationLoading, setMigrationLoading] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<{ success: boolean; msg: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -294,20 +217,24 @@ const App: React.FC = () => {
     setEditingRecord(null);
   };
 
-  const handleSaveRecord = (record: DividendRecord) => {
-    let updatedRecords;
-    if (editingRecord) {
-      updatedRecords = records.map(r => r.id === record.id ? record : r);
-    } else {
-      updatedRecords = [...records, record];
+  const handleSaveRecord = async (record: DividendRecord) => {
+    try {
+      // Save to Firestore; real-time subscription will update local state
+      await saveDividendRecord(accountType as 'general' | 'tax-free', record);
+    } catch (error) {
+      console.error('Failed to save record:', error);
+      alert('저장 실패: ' + error);
     }
-    setRecords(recalculatePortfolio(updatedRecords, accountType));
     closeModal();
   };
 
-  const handleDeleteRecord = (id: string) => {
-    const remainingRecords = records.filter(r => r.id !== id);
-    setRecords(recalculatePortfolio(remainingRecords, accountType));
+  const handleDeleteRecord = async (id: string) => {
+    try {
+      await deleteDividendRecord(accountType as 'general' | 'tax-free', id);
+    } catch (error) {
+      console.error('Failed to delete record:', error);
+      alert('삭제 실패: ' + error);
+    }
     closeModal();
   };
 
@@ -316,16 +243,23 @@ const App: React.FC = () => {
     setResetWarningOpen(true);
   };
 
-  const executeReset = () => {
-    // 1. Clear all records
-    setRecords([]);
+  const executeReset = async () => {
+    try {
+      // Clear Firestore collection
+      const collectionName = accountType === 'general' ? COLLECTIONS.generalDividends : COLLECTIONS.taxFreeDividends;
+      await clearCollection(collectionName);
 
-    // 2. Clear date filters
-    setStartMonth('');
-    setEndMonth('');
+      // Clear date filters
+      setStartMonth('');
+      setEndMonth('');
 
-    setResetWarningOpen(false);
-    setResetSuccessOpen(true);
+      setResetWarningOpen(false);
+      setResetSuccessOpen(true);
+    } catch (error) {
+      console.error('Reset failed:', error);
+      alert('초기화 실패: ' + error);
+      setResetWarningOpen(false);
+    }
   };
 
   // --- CSV Helpers ---
@@ -518,20 +452,48 @@ const App: React.FC = () => {
     reader.readAsArrayBuffer(file);
   };
 
-  const executeImport = () => {
-    const processed = recalculatePortfolio(pendingImportRecords, accountType);
-    setRecords(processed);
+  const executeImport = async () => {
+    try {
+      const processed = recalculatePortfolio(pendingImportRecords, accountType);
 
-    // Also reset date filters for imported data
-    const newMonths = Array.from(new Set(processed.map((r: DividendRecord) => r.date.substring(0, 7)))).sort();
-    if (newMonths.length > 0) {
-      setStartMonth(newMonths[0]);
-      setEndMonth(newMonths[newMonths.length - 1]);
+      // Clear existing and batch save new data to Firestore
+      const collectionName = accountType === 'general' ? COLLECTIONS.generalDividends : COLLECTIONS.taxFreeDividends;
+      await clearCollection(collectionName);
+      await batchSave(collectionName, processed);
+
+      // Reset date filters for imported data
+      const newMonths = Array.from(new Set(processed.map((r: DividendRecord) => r.date.substring(0, 7)))).sort();
+      if (newMonths.length > 0) {
+        setStartMonth(newMonths[0]);
+        setEndMonth(newMonths[newMonths.length - 1]);
+      }
+
+      setImportWarningOpen(false);
+      setImportSuccessOpen(true);
+      setPendingImportRecords([]);
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('가져오기 실패: ' + error);
+      setImportWarningOpen(false);
     }
+  };
 
-    setImportWarningOpen(false);
-    setImportSuccessOpen(true);
-    setPendingImportRecords([]);
+  const handleMigration = async () => {
+    if (!confirm("로컬 데이터(브라우저 저장소)를 Firebase Cloud DB로 업로드하시겠습니까?\n이미 DB에 데이터가 있다면 중복될 수 있습니다.")) return;
+
+    setMigrationLoading(true);
+    try {
+      const result = await migrateDataToFirestore();
+      if (result.success) {
+        setMigrationResult({ success: true, msg: `총 ${result.count}건의 데이터가 성공적으로 클라우드에 저장되었습니다.` });
+      } else {
+        setMigrationResult({ success: false, msg: `오류가 발생했습니다: ${result.errors.join(', ')}` });
+      }
+    } catch (e: any) {
+      setMigrationResult({ success: false, msg: "알 수 없는 오류가 발생했습니다." });
+    } finally {
+      setMigrationLoading(false);
+    }
   };
 
   return (
@@ -580,6 +542,15 @@ const App: React.FC = () => {
         type="success"
         title="가져오기 완료"
         message="데이터를 성공적으로 불러왔습니다."
+        confirmLabel="확인"
+      />
+
+      <NotificationModal
+        isOpen={!!migrationResult}
+        onClose={() => setMigrationResult(null)}
+        type={migrationResult?.success ? "success" : "error"}
+        title={migrationResult?.success ? "업로드 성공" : "업로드 실패"}
+        message={migrationResult?.msg || ""}
         confirmLabel="확인"
       />
 
@@ -774,6 +745,17 @@ const App: React.FC = () => {
                 >
                   <Upload className="w-4 h-4" />
                   가져오기
+                </button>
+
+                <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
+
+                <button
+                  onClick={handleMigration}
+                  disabled={migrationLoading}
+                  className="flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-md text-sm font-medium transition-colors border border-indigo-200"
+                >
+                  <CloudUpload className="w-4 h-4" />
+                  {migrationLoading ? '업로드 중...' : '클라우드 백업'}
                 </button>
 
                 <div className="h-8 w-px bg-slate-300 mx-1 hidden md:block"></div>
