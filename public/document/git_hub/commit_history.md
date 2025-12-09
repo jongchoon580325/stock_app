@@ -1,5 +1,9 @@
 # Commit History
 
+## 18. [2025-12-09 18:48] Commit: 6b7c5be
+
+   **Title:** feat: Integrate Firebase Firestore for cloud data storage
+
 ## 17. [2025-12-08 17:25] Commit: 938d943
 
    **Title:** feat: Enhance Tax Simulator with RP exception, PDF font fix, Price API, and Reset
