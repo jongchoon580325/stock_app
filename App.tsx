@@ -189,7 +189,12 @@ const App: React.FC = () => {
   // --- Search Stats Calculation ---
   const searchStats = useMemo(() => {
     const totalQty = filteredRecords.reduce((sum, r) => sum + r.quantity, 0);
-    const totalDividend = filteredRecords.reduce((sum, r) => sum + r.taxableDistribution, 0); // Gross Dividend
+    // Net Dividend = Gross - Tax = (dividendPerShare * quantity) - taxAmount
+    const totalDividend = filteredRecords.reduce((sum, r) => {
+      const gross = r.dividendPerShare * r.quantity;
+      const net = gross - r.taxAmount;
+      return sum + net;
+    }, 0);
 
     // Weighted Average Price
     let totalVal = 0;
@@ -691,7 +696,7 @@ const App: React.FC = () => {
                   <span className="text-6xl font-bold text-red-900">₩</span>
                 </div>
                 <div className="text-sm text-slate-500 font-medium mb-1 flex items-center gap-2">
-                  분배금 합계 (과세표준)
+                  분배금 합계
                 </div>
                 <div className="text-2xl font-bold text-slate-700">
                   {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(searchStats.totalDividend)}

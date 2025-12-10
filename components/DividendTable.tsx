@@ -15,6 +15,11 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showSummary, setShowSummary] = useState(false);
 
+  // Reset page to 1 when records change (e.g., account type switch, data load)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [records]);
+
   // Show summary 2 seconds after records change (only when filtered)
   useEffect(() => {
     setShowSummary(false);
@@ -241,71 +246,70 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
           </select>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToPage(1)}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              title="처음"
-            >
-              <ChevronsLeft className="w-4 h-4 text-slate-600" />
-            </button>
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              title="이전"
-            >
-              <ChevronLeft className="w-4 h-4 text-slate-600" />
-            </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => goToPage(1)}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+            title="처음"
+          >
+            <ChevronsLeft className="w-4 h-4 text-slate-600" />
+          </button>
+          <button
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+            title="이전"
+          >
+            <ChevronLeft className="w-4 h-4 text-slate-600" />
+          </button>
 
-            {/* Page Numbers */}
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
-                    className={`px-3 py-1 text-sm rounded ${currentPage === pageNum
-                      ? 'bg-indigo-600 text-white font-medium'
-                      : 'hover:bg-slate-200 text-slate-700'
-                      }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              title="다음"
-            >
-              <ChevronRight className="w-4 h-4 text-slate-600" />
-            </button>
-            <button
-              onClick={() => goToPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              title="끝"
-            >
-              <ChevronsRight className="w-4 h-4 text-slate-600" />
-            </button>
+          {/* Page Numbers */}
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => goToPage(pageNum)}
+                  className={`px-3 py-1 text-sm rounded ${currentPage === pageNum
+                    ? 'bg-indigo-600 text-white font-medium'
+                    : 'hover:bg-slate-200 text-slate-700'
+                    }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          <button
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+            title="다음"
+          >
+            <ChevronRight className="w-4 h-4 text-slate-600" />
+          </button>
+          <button
+            onClick={() => goToPage(totalPages)}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+            title="끝"
+          >
+            <ChevronsRight className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+
       </div>
     </div >
   );
