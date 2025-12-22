@@ -41,7 +41,7 @@ const App: React.FC = () => {
     // Track last seen values for each stock to calculate changes
     const stockHistory: Record<string, { price: number; dividend: number }> = {};
 
-    return sorted.map(record => {
+    const calculated = sorted.map(record => {
       // Rule 4: Taxable Distribution = Tax Base * Quantity
       // For Tax-Free, we ignore tax calculations (set to 0)
       const isTaxFree = type === 'tax-free';
@@ -73,6 +73,9 @@ const App: React.FC = () => {
         dividendChange
       };
     });
+
+    // Return in Descending Order (Newest First) for UI display
+    return calculated.reverse();
   };
 
   // Initialize state - will be populated by Firestore subscription

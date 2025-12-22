@@ -43,7 +43,7 @@ export const DividendTable: React.FC<DividendTableProps> = ({ records, onRowClic
   // Process records to add calculated fields for display
   const enrichedRecords = useMemo(() => {
     // Records are already sorted by date in App.tsx typically, but ensure safety
-    const sorted = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sorted = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return sorted.map(rec => {
       // Rule 3: Gross Distribution = Dividend * Quantity
