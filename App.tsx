@@ -9,6 +9,7 @@ import { DividendFormModal } from './components/DividendFormModal';
 
 import { NotificationModal } from './components/NotificationModal';
 import { AssetConfig } from './components/AssetConfig';
+import { MobileMenu } from './components/MobileMenu';
 import { PlusCircle, LayoutDashboard, CalendarRange, ArrowRight, RotateCcw, Download, Upload, FileText, Search, CloudUpload } from 'lucide-react';
 import { migrateDataToFirestore } from './logic/migrationService';
 import {
@@ -570,7 +571,7 @@ const App: React.FC = () => {
               </h1>
             </div>
 
-            {/* Account Type Tabs */}
+            {/* Account Type Tabs - Desktop */}
             <div className="hidden md:flex items-center bg-slate-100 rounded-lg p-1 ml-4">
               <button
                 onClick={() => setAccountType('general')}
@@ -600,6 +601,10 @@ const App: React.FC = () => {
                 Asset Config
               </button>
             </div>
+
+            {/* Mobile Menu */}
+            <MobileMenu accountType={accountType} setAccountType={setAccountType} />
+
           </div>
 
           <div className="text-sm text-slate-500 hidden sm:block">

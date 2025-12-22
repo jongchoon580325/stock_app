@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle, X } from 'lucide-react';
 interface NotificationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'warning' | 'success';
+  type: 'warning' | 'success' | 'error';
   title: string;
   message: string;
   onConfirm?: () => void;
@@ -23,11 +23,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const isWarning = type === 'warning';
+  const isWarning = type === 'warning' || type === 'error';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 transition-all">
-      <div 
+      <div
         className={`
           relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300
           ${isWarning ? 'border-t-8 border-rose-400' : 'border-t-8 border-emerald-400'}
@@ -45,7 +45,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
           <h3 className="text-xl font-bold text-slate-800 mb-2">
             {title}
           </h3>
-          
+
           <p className="text-slate-500 text-sm leading-relaxed mb-6 whitespace-pre-wrap">
             {message}
           </p>
@@ -59,7 +59,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 취소
               </button>
             )}
-            
+
             <button
               onClick={() => {
                 if (onConfirm) onConfirm();
@@ -67,8 +67,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               }}
               className={`
                 flex-1 py-2.5 px-4 rounded-xl font-bold text-white shadow-md transition-transform active:scale-95 text-sm
-                ${isWarning 
-                  ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-200' 
+                ${isWarning
+                  ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-200'
                   : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}
               `}
             >
