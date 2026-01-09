@@ -1,5 +1,33 @@
 # Commit History
 
+## 26. [2025-12-22 19:40] Commit: 18f9c79
+
+   **Title:** fix: Limit USD input to 2 decimal places in CashEditModal
+
+## 25. [2025-12-22 19:25] Commit: ed17369
+
+   **Title:** feat: Implement Cash Asset Management (KRW/USD) and Dashboard integration
+
+## 24. [2025-12-22 18:50] Commit: 1895ec4
+
+   **Title:** feat: Add thousands separator to tax simulator target amount input
+
+## 23. [2025-12-22 18:42] Commit: 9c6c32c
+
+   **Title:** feat: Replace native API key prompt with modern modal UI
+
+## 22. [2025-12-22 18:25] Commit: ba62bd5
+
+   **Title:** chore: Add permissive firestore rules for production access
+
+## 21. [2025-12-22 18:09] Commit: 9c6c32c
+
+   **Title:** feat: Change dividend table sort order to descending (newest first)
+
+## 20. [2025-12-22 17:16] Commit: 79969a7
+
+   **Title:** feat: Implement responsive hamburger menu for mobile/tablet
+
 ## 19. [2025-12-10 16:55] Commit: 7546892
 
    **Title:** feat: Refine UI stats logic and add deploy script
