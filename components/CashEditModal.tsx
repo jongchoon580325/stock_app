@@ -35,16 +35,34 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
         onClose();
     };
 
-    const formatNumber = (val: string) => {
-        const num = parseFloat(val.replace(/,/g, ''));
-        if (isNaN(num)) return '';
-        return num.toLocaleString();
+    const formatDisplayValue = (val: string) => {
+        if (!val) return '';
+        // Split integer and decimal parts
+        const parts = val.split('.');
+        const integerPart = parts[0] ? parseInt(parts[0], 10).toLocaleString() : '0';
+
+        // Return structured string to preserve trailing dot or zeros
+        if (parts.length > 1) {
+            return `${integerPart}.${parts[1]}`;
+        } else if (val.endsWith('.')) {
+            return `${integerPart}.`;
+        }
+        return parseInt(val, 10).toLocaleString();
     };
 
-    const handleChange = (setter: React.Dispatch<React.SetStateAction<string>>, val: string) => {
+    const handleKrwChange = (val: string) => {
         const raw = val.replace(/,/g, '');
-        if (raw === '' || !isNaN(Number(raw))) {
-            setter(raw);
+        // KRW: Integer only
+        if (raw === '' || /^\d+$/.test(raw)) {
+            setKrwAmount(raw);
+        }
+    };
+
+    const handleUsdChange = (val: string) => {
+        const raw = val.replace(/,/g, '');
+        // USD: Allow decimals up to 2 places
+        if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
+            setUsdAmount(raw);
         }
     };
 
@@ -75,8 +93,8 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₩</span>
                                 <input
                                     type="text"
-                                    value={krwAmount ? parseFloat(krwAmount).toLocaleString() : ''}
-                                    onChange={(e) => handleChange(setKrwAmount, e.target.value)}
+                                    value={krwAmount ? parseInt(krwAmount).toLocaleString() : ''}
+                                    onChange={(e) => handleKrwChange(e.target.value)}
                                     placeholder="0"
                                     className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-right"
                                 />
@@ -90,8 +108,8 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
                                 <input
                                     type="text"
-                                    value={usdAmount ? parseFloat(usdAmount).toLocaleString() : ''}
-                                    onChange={(e) => handleChange(setUsdAmount, e.target.value)}
+                                    value={formatDisplayValue(usdAmount)}
+                                    onChange={(e) => handleUsdChange(e.target.value)}
                                     placeholder="0.00"
                                     className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-right"
                                 />
