@@ -292,11 +292,16 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
 
                         <div className="flex items-center gap-2 bg-white border border-indigo-200 rounded-md px-2 py-1 shadow-sm">
                             <input
-                                type="number"
+                                type="text"
                                 placeholder="목표 금액(원)"
                                 className="w-32 px-2 py-1 text-sm outline-none bg-transparent"
-                                value={targetAmount || ''}
-                                onChange={e => setTargetAmount(Number(e.target.value))}
+                                value={targetAmount > 0 ? targetAmount.toLocaleString() : ''}
+                                onChange={e => {
+                                    const rawValue = e.target.value.replace(/,/g, '');
+                                    if (!isNaN(Number(rawValue))) {
+                                        setTargetAmount(Number(rawValue));
+                                    }
+                                }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') runTargetStrategy();
                                 }}
