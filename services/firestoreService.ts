@@ -12,14 +12,37 @@ import {
     QuerySnapshot,
     DocumentData
 } from 'firebase/firestore';
-import { DividendRecord, AssetRecord } from '../types';
+import { DividendRecord, AssetRecord, CashHolding } from '../types';
 
 // Collection Names
 export const COLLECTIONS = {
     generalDividends: 'general_dividends',
     taxFreeDividends: 'tax_free_dividends',
-    assetConfig: 'asset_config'
+    assetConfig: 'asset_config',
+    cashHoldings: 'cash_holdings'
 };
+
+// ... (previous code)
+
+// --- Specific Helpers for Cash Holdings ---
+
+export const loadCashHoldings = async (): Promise<CashHolding | null> => {
+    const records = await loadCollection<CashHolding>(COLLECTIONS.cashHoldings);
+    return records.length > 0 ? records[0] : null;
+};
+
+export const saveCashHoldings = async (record: CashHolding): Promise<void> => {
+    return saveDocument(COLLECTIONS.cashHoldings, record);
+};
+
+export const subscribeToCashHoldings = (
+    callback: (data: CashHolding | null) => void
+): (() => void) => {
+    return subscribeToCollection<CashHolding>(COLLECTIONS.cashHoldings, (data) => {
+        callback(data.length > 0 ? data[0] : null);
+    });
+};
+
 
 // --- Generic Firestore Operations ---
 

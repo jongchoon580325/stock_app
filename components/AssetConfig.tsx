@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Download, PlusCircle, RotateCcw, Search, Upload, CloudUpload } from 'lucide-react';
 import { migrateDataToFirestore, MigrationResult } from '../logic/migrationService';
-import { AssetRecord } from '../types';
+import { AssetRecord, CashHolding } from '../types';
 import { AssetTable } from './AssetTable';
 import { ASSET_SAMPLE_RECORDS } from '../constants';
 import { NotificationModal } from './NotificationModal';
@@ -14,8 +14,12 @@ import {
     deleteAssetRecord,
     clearCollection,
     batchSave,
-    COLLECTIONS
+    COLLECTIONS,
+    subscribeToCashHoldings,
+    saveCashHoldings
 } from '../services/firestoreService';
+import { CashEditModal } from './CashEditModal';
+import { Edit2 } from 'lucide-react';
 
 export const AssetConfig: React.FC = () => {
     const [records, setRecords] = useState<AssetRecord[]>([]);
@@ -46,6 +50,10 @@ export const AssetConfig: React.FC = () => {
     const [migrationResult, setMigrationResult] = useState<{ success: boolean; msg: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Cash Holding State
+    const [cashData, setCashData] = useState<CashHolding>({ id: 'default', krwBalance: 0, usdBalance: 0, updatedAt: '' });
+    const [isCashModalOpen, setIsCashModalOpen] = useState(false);
+
     // Firestore Real-time Subscription for Asset Data
     useEffect(() => {
         setIsLoading(true);
@@ -62,7 +70,16 @@ export const AssetConfig: React.FC = () => {
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        const unsubscribeCash = subscribeToCashHoldings((data) => {
+            if (data) {
+                setCashData(data);
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            unsubscribeCash();
+        };
     }, []);
 
     // Fetch real-time USD/KRW exchange rate
@@ -149,11 +166,11 @@ export const AssetConfig: React.FC = () => {
         });
 
         // Convert USD to KRW using real-time exchange rate
-        const usdInKrw = usdTotal * exchangeRate;
-        const grandTotal = krwTotal + usdInKrw;
+        const usdInKrw = (usdTotal + cashData.usdBalance) * exchangeRate;
+        const grandTotal = (krwTotal + cashData.krwBalance) + usdInKrw;
 
-        return { krwTotal, usdTotal, grandTotal };
-    }, [filteredRecords, exchangeRate]);
+        return { krwTotal, usdTotal, grandTotal, stockKrw: krwTotal, stockUsd: usdTotal };
+    }, [filteredRecords, exchangeRate, cashData]);
 
     // Helper: parse number from various formats (with/without comma, currency symbols)
     const parseNumber = (value: string | undefined): number => {
@@ -431,6 +448,21 @@ export const AssetConfig: React.FC = () => {
         closeModal();
     };
 
+    const handleSaveCash = async (krw: number, usd: number) => {
+        try {
+            const newRecord: CashHolding = {
+                id: 'default',
+                krwBalance: krw,
+                usdBalance: usd,
+                updatedAt: new Date().toISOString()
+            };
+            await saveCashHoldings(newRecord);
+        } catch (error) {
+            console.error('Failed to save cash:', error);
+            alert('현금 자산 저장 실패: ' + error);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <AssetFormModal
@@ -440,6 +472,14 @@ export const AssetConfig: React.FC = () => {
                 onDelete={handleDeleteRecord}
                 initialData={editingRecord}
                 existingRecords={records}
+            />
+
+            <CashEditModal
+                isOpen={isCashModalOpen}
+                onClose={() => setIsCashModalOpen(false)}
+                onSave={handleSaveCash}
+                initialKrw={cashData.krwBalance}
+                initialUsd={cashData.usdBalance}
             />
 
             {/* Data Health Check Warning Banner */}
@@ -461,7 +501,7 @@ export const AssetConfig: React.FC = () => {
             {/* 1. Dashboard Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Total Assets */}
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-lg border border-slate-200 shadow-sm">
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-5 rounded-lg border border-slate-200 shadow-sm relative">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold text-slate-600">총 자산 (추정)</h3>
                     </div>
@@ -469,33 +509,61 @@ export const AssetConfig: React.FC = () => {
                         {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', minimumFractionDigits: 0 }).format(stats.grandTotal)}
                     </div>
                     <div className="text-xs text-slate-500">
-                        * USD 환산기준 (현재환율: ₩{exchangeRate.toFixed(2)})
+                        * 주식 + 현금 (환율: ₩{exchangeRate.toFixed(2)})
                     </div>
                 </div>
 
                 {/* USD Assets */}
-                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden group">
+                    {/* Edit Button */}
+                    <button
+                        onClick={() => setIsCashModalOpen(true)}
+                        className="absolute top-3 right-3 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all opacity-100 z-10"
+                        title="현금 잔고 수정"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                         <span className="text-6xl font-bold text-blue-900">$</span>
                     </div>
                     <div className="text-sm text-slate-500 font-medium mb-1 flex items-center gap-2">
                         🇺🇸 USD 자산
                     </div>
-                    <div className="text-2xl font-bold text-blue-600">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.usdTotal)}
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stats.usdTotal + cashData.usdBalance)}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">주식 ${Math.round(stats.stockUsd || 0).toLocaleString()}</span>
+                        <span>+</span>
+                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">현금 ${Math.round(cashData.usdBalance).toLocaleString()}</span>
                     </div>
                 </div>
 
                 {/* KRW Assets */}
-                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm relative overflow-hidden group">
+                    {/* Edit Button */}
+                    <button
+                        onClick={() => setIsCashModalOpen(true)}
+                        className="absolute top-3 right-3 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-100 z-10"
+                        title="현금 잔고 수정"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                         <span className="text-6xl font-bold text-red-900">₩</span>
                     </div>
                     <div className="text-sm text-slate-500 font-medium mb-1 flex items-center gap-2">
                         🇰🇷 KRW 자산
                     </div>
-                    <div className="text-2xl font-bold text-slate-700">
-                        {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(stats.krwTotal)}
+                    <div className="text-2xl font-bold text-slate-700 mb-1">
+                        {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(stats.krwTotal + cashData.krwBalance)}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">주식 ₩{Math.round(stats.stockKrw || 0).toLocaleString()}</span>
+                        <span>+</span>
+                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">현금 ₩{cashData.krwBalance.toLocaleString()}</span>
                     </div>
                 </div>
             </div>

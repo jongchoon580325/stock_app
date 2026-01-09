@@ -46,3 +46,9 @@ export interface SummaryStats {
   totalTaxAmount: number; // 과세 총 금액
   totalReceived: number; // 총 수령액
 }
+export interface CashHolding {
+  id: string; // Singleton use 'default'
+  krwBalance: number;
+  usdBalance: number;
+  updatedAt: string;
+}
