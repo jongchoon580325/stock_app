@@ -7,6 +7,7 @@ import { generateTaxReport } from '../logic/taxReportService'; // Import Report 
 import { fetchBatchPrices } from '../logic/stockPriceService'; // Import Stock Price Service
 
 import { NotificationModal } from './NotificationModal';
+import { ApiKeyModal } from './ApiKeyModal'; // Import new modal
 
 interface TaxSimulatorProps {
     records: AssetRecord[];
@@ -23,6 +24,7 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
 
     // API Key State (Persist in LocalStorage logic would be in useEffect, but let's lazy init)
     const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('finnhubApiKey') || '');
+    const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false); // New Modal State
 
     // Initial Data Loading
     const { inventory, realizedSummary } = useMemo(() => {
@@ -62,19 +64,19 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
         });
     };
 
-    const handleSetApiKey = () => {
-        const newKey = prompt("Finnhub API Key를 입력해주세요.\n(https://finnhub.io 에서 무료 발급 가능)", apiKey);
-        if (newKey !== null) {
-            setApiKey(newKey.trim());
-            localStorage.setItem('finnhubApiKey', newKey.trim());
-        }
+    const handleSaveApiKey = (newKey: string) => {
+        const trimmed = newKey.trim();
+        setApiKey(trimmed);
+        localStorage.setItem('finnhubApiKey', trimmed);
+        setIsApiKeyModalOpen(false);
+        // Optional: Auto trigger fetch if key was just added? 
+        // Let's stick to user clicking button again to imply intent, or just close.
     };
 
     const handleAutoFillPrices = async () => {
         if (!apiKey) {
-            if (confirm("API Key가 설정되지 않았습니다.\n키를 등록하시겠습니까?")) {
-                handleSetApiKey();
-            }
+            // Open Modal instead of confirm/prompt
+            setIsApiKeyModalOpen(true);
             return;
         }
 
@@ -386,6 +388,12 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                             </table>
                         )}
                     </div>
+                    <ApiKeyModal
+                        isOpen={isApiKeyModalOpen}
+                        onClose={() => setIsApiKeyModalOpen(false)}
+                        onSave={handleSaveApiKey}
+                        initialKey={apiKey}
+                    />
                 </div>
             </div>
         </div>
