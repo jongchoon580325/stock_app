@@ -1,10 +1,10 @@
 # Commit History
 
-## 26. [2025-12-22 19:40] Commit: 18f9c79
+## 26. [2026-01-09 19:40] Commit: 18f9c79
 
    **Title:** fix: Limit USD input to 2 decimal places in CashEditModal
 
-## 25. [2025-12-22 19:25] Commit: ed17369
+## 25. [2026-01-09 19:25] Commit: ed17369
 
    **Title:** feat: Implement Cash Asset Management (KRW/USD) and Dashboard integration
 

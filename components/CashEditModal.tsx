@@ -66,6 +66,12 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 transition-all">
             <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 border-t-8 border-emerald-500">
@@ -95,6 +101,7 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
                                     type="text"
                                     value={krwAmount ? parseInt(krwAmount).toLocaleString() : ''}
                                     onChange={(e) => handleKrwChange(e.target.value)}
+                                    onKeyDown={handleKeyDown}
                                     placeholder="0"
                                     className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-right"
                                 />
@@ -110,6 +117,7 @@ export const CashEditModal: React.FC<CashEditModalProps> = ({
                                     type="text"
                                     value={formatDisplayValue(usdAmount)}
                                     onChange={(e) => handleUsdChange(e.target.value)}
+                                    onKeyDown={handleKeyDown}
                                     placeholder="0.00"
                                     className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-right"
                                 />
