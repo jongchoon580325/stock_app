@@ -186,3 +186,78 @@ export const calculateCurrentPortfolio = (records: AssetRecord[]): Map<string, P
 
     return inventory;
 };
+
+/**
+ * Calculates current holdings separated by Account Number.
+ * Used for "Greedy Allocation" in Report to guide user where to sell.
+ * Returns: Map<Symbol, Map<AccountNumber, Quantity>>
+ */
+export const calculateHoldingsByAccount = (records: AssetRecord[]): Map<string, Map<string, number>> => {
+    // 1. Filter US Stocks & Sort by Date
+    const usRecords = records
+        .filter(r => r.country === 'USA' && r.name !== '외화-RP')
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 2. Track Inventory per Symbol -> Account
+    const inventory = new Map<string, Map<string, number>>();
+
+    usRecords.forEach(r => {
+        const symbol = r.name;
+        // Normalizing account number: "123-45" vs "123-45 "
+        const rawAccount = r.accountNumber ? r.accountNumber.trim() : '미지정';
+        // Append Account Type for Uniqueness if needed? 
+        // User asked for "Account Number (SellQty)". 
+        // Just use Account Number as key. If user has multiple types with same number, it usually means same account.
+        const accountKey = rawAccount;
+
+        if (!inventory.has(symbol)) {
+            inventory.set(symbol, new Map());
+        }
+        const accountMap = inventory.get(symbol)!;
+
+        // Init if not exists
+        if (!accountMap.has(accountKey)) {
+            accountMap.set(accountKey, 0);
+        }
+
+        const currentQty = accountMap.get(accountKey)!;
+
+        if (r.tradeType === '매수') {
+            accountMap.set(accountKey, currentQty + r.quantity);
+        } else if (r.tradeType === '매도') {
+            // Logic: FIFO or proportional? 
+            // In reality, user might have sold from A or B. 
+            // Our records usually don't link Sell to Buy ID, but "should" have account number on Sell record.
+            // If Sell Record has Account Number, deduct from THAT account.
+            // If Sell Record has NO Account Number (legacy data?), deduct from Largest/First?
+
+            if (r.accountNumber) {
+                // Deduct from specific account
+                const sellAcct = r.accountNumber.trim();
+                const existing = accountMap.get(sellAcct) || 0;
+                accountMap.set(sellAcct, Math.max(0, existing - r.quantity));
+            } else {
+                // If account info missing on sell, deduct from largest holding (Best Effort)
+                // Or just ignore validation since this is a "Helper for Report".
+                // Let's deduct from first available for now to keep sums roughly correct.
+                let pendingSell = r.quantity;
+                for (const [acct, qty] of accountMap) {
+                    if (pendingSell <= 0) break;
+                    const deduct = Math.min(qty, pendingSell);
+                    accountMap.set(acct, qty - deduct);
+                    pendingSell -= deduct;
+                }
+            }
+        }
+    });
+
+    // Clean up 0 balances
+    for (const [sym, acctMap] of inventory) {
+        for (const [acct, qty] of acctMap) {
+            if (qty <= 1e-9) acctMap.delete(acct);
+        }
+        if (acctMap.size === 0) inventory.delete(sym);
+    }
+
+    return inventory;
+};

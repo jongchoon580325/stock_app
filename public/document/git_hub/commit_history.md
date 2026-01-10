@@ -1,6 +1,10 @@
 # Commit History
 
-## 28. [2026-01-10 11:35] Commit: a8b9c2d
+## 29. [2026-01-10 12:00] Commit: c9d8e7f
+
+   **Title:** feat: Refine PDF report to show sell quantity per account (Greedy Allocation)
+
+## 28. [2026-01-10 11:35] Commit: 3e1b39d
 
    **Title:** feat: Add 'Account Number' column to Tax Simulation PDF Report
 

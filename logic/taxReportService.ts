@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StrategyPlan } from './taxStrategyService';
-import { RealizedGainByYear } from './usTaxEngine';
+import { RealizedGainByYear, calculateHoldingsByAccount } from './usTaxEngine';
 import { AssetRecord } from '../types';
 
 // Extend jsPDF type to include autoTable
@@ -127,21 +127,44 @@ export const generateTaxReport = async (
         doc.text('3. 매도 추천 내역 (Action Plan)', 15, currentY);
         currentY += 5;
 
+        // 1. Get Current Holdings Snapshot by Account
+        const holdingsByAccount = calculateHoldingsByAccount(allRecords);
+
         const tableBody = plan.items.map(item => {
-            // Lookup Account Number(s) for this symbol
-            const accounts = [...new Set(
-                allRecords
-                    .filter(r => r.name === item.symbol && r.accountNumber)
-                    .map(r => {
-                        // Optional: Format as "123-45 (Type)"
-                        const type = r.accountType ? `(${r.accountType})` : '';
-                        return `${r.accountNumber} ${type}`.trim();
-                    })
-            )].join(', ');
+            // Logic: Distribute 'item.sellQty' among accounts holding this symbol
+            const symbolHoldings = holdingsByAccount.get(item.symbol);
+            let accountDisplay = '-';
+
+            if (symbolHoldings && symbolHoldings.size > 0) {
+                let remainingSellQty = item.sellQty;
+                const allocations: string[] = [];
+
+                // Sort accounts by quantity descending (Prioritize selling from large buckets)
+                // Or just stable sort by account name
+                const sortedAccounts = Array.from(symbolHoldings.entries())
+                    .sort((a, b) => b[1] - a[1]); // Descending Qty
+
+                for (const [acct, heldQty] of sortedAccounts) {
+                    if (remainingSellQty <= 0) break;
+
+                    const take = Math.min(heldQty, remainingSellQty);
+                    allocations.push(`${acct}(${take.toLocaleString()}주)`);
+                    remainingSellQty -= take;
+                }
+
+                // Fallback if needed
+                if (remainingSellQty > 0) {
+                    // allocations.push(`미상세(${remainingSellQty}주)`);
+                }
+
+                accountDisplay = allocations.join(', ');
+            } else {
+                accountDisplay = '-';
+            }
 
             return [
                 item.symbol,
-                accounts || '-', // Display Account Number
+                accountDisplay, // Display "Account(Qty)"
                 `${item.sellQty.toLocaleString()}주`,
                 `${Math.round(item.proceedsKRW).toLocaleString()}`,
                 `${Math.round(item.realizedGainKRW).toLocaleString()}`,
