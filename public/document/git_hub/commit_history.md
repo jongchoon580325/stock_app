@@ -1,6 +1,10 @@
 # Commit History
 
-## 30. [2026-01-10 13:25] Commit: 9b2a7e4
+## 31. [2026-01-10 13:45] Commit: a2d4e6f
+
+   **Title:** fix: Ensure estimated tax is always displayed in Simulator UI and added to PDF report
+
+## 30. [2026-01-10 13:25] Commit: fb58415
 
    **Title:** feat: Display estimated tax amount in Simulator Results header
 

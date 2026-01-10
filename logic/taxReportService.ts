@@ -125,6 +125,16 @@ export const generateTaxReport = async (
         // 5. Action Plan Table
         doc.setFontSize(14);
         doc.text('3. 매도 추천 내역 (Action Plan)', 15, currentY);
+
+        // Add Estimated Tax Display (Right aligned or center)
+        if (plan.totalTaxableDetail.finalTax > 0) {
+            doc.setFontSize(12);
+            doc.setTextColor(220, 38, 38); // Red color
+            const taxText = `예상 양도세: ${Math.round(plan.totalTaxableDetail.finalTax).toLocaleString()} 원`;
+            doc.text(taxText, pageWidth - 15, currentY, { align: 'right' });
+            doc.setTextColor(0);
+        }
+
         currentY += 5;
 
         // 1. Get Current Holdings Snapshot by Account
