@@ -1,5 +1,13 @@
 # Commit History
 
+## 28. [2026-01-10 11:35] Commit: a8b9c2d
+
+   **Title:** feat: Add 'Account Number' column to Tax Simulation PDF Report
+
+## 27. [2026-01-09 19:46] Commit: 43702e7
+
+   **Title:** fix: Add Enter key support to CashEditModal and correct history dates
+
 ## 26. [2026-01-09 19:40] Commit: 18f9c79
 
    **Title:** fix: Limit USD input to 2 decimal places in CashEditModal

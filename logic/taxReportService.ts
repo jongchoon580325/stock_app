@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StrategyPlan } from './taxStrategyService';
 import { RealizedGainByYear } from './usTaxEngine';
+import { AssetRecord } from '../types';
 
 // Extend jsPDF type to include autoTable
 interface jsPDFWithAutoTable extends jsPDF {
@@ -60,6 +61,7 @@ const loadKoreanFont = async (doc: jsPDF): Promise<boolean> => {
 export const generateTaxReport = async (
     plan: StrategyPlan,
     yearSummary: RealizedGainByYear,
+    allRecords: AssetRecord[], // New argument for account lookup
     startLoading: () => void,
     endLoading: () => void
 ) => {
@@ -125,27 +127,46 @@ export const generateTaxReport = async (
         doc.text('3. 매도 추천 내역 (Action Plan)', 15, currentY);
         currentY += 5;
 
-        const tableBody = plan.items.map(item => [
-            item.symbol,
-            `${item.sellQty.toLocaleString()}주`,
-            `${Math.round(item.proceedsKRW).toLocaleString()}`,
-            `${Math.round(item.realizedGainKRW).toLocaleString()}`,
-            `${item.fxRate}`
-        ]);
+        const tableBody = plan.items.map(item => {
+            // Lookup Account Number(s) for this symbol
+            const accounts = [...new Set(
+                allRecords
+                    .filter(r => r.name === item.symbol && r.accountNumber)
+                    .map(r => {
+                        // Optional: Format as "123-45 (Type)"
+                        const type = r.accountType ? `(${r.accountType})` : '';
+                        return `${r.accountNumber} ${type}`.trim();
+                    })
+            )].join(', ');
+
+            return [
+                item.symbol,
+                accounts || '-', // Display Account Number
+                `${item.sellQty.toLocaleString()}주`,
+                `${Math.round(item.proceedsKRW).toLocaleString()}`,
+                `${Math.round(item.realizedGainKRW).toLocaleString()}`,
+                `${item.fxRate}`
+            ];
+        });
 
         // Add Summary Row
         const totalProceeds = plan.items.reduce((sum, i) => sum + i.proceedsKRW, 0);
         const totalGain = plan.totalTaxableDetail.totalGain - yearSummary.totalRealizedGain;
-        tableBody.push(['합계', '-', `${Math.round(totalProceeds).toLocaleString()}`, `${Math.round(totalGain).toLocaleString()}`, '-']);
+        tableBody.push(['합계', '-', '-', `${Math.round(totalProceeds).toLocaleString()}`, `${Math.round(totalGain).toLocaleString()}`, '-']);
 
         autoTable(doc, {
             startY: currentY,
-            head: [['종목', '매도수량', '매도금액(KRW)', '예상실현이익', '적용환율']],
+            head: [['종목', '계좌번호', '매도수량', '매도금액(KRW)', '예상실현이익', '적용환율']],
             body: tableBody,
             styles: { font: fontLoaded ? 'NanumGothic' : 'helvetica', fontSize: 10 },
             headStyles: { fillColor: [66, 66, 66] },
             footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-            theme: 'grid'
+            theme: 'grid',
+            columnStyles: {
+                0: { cellWidth: 35 }, // Symbol
+                1: { cellWidth: 50 }, // Account Number (Allocated more space)
+                // Auto for others
+            }
         });
 
         const finalY = (doc as any).lastAutoTable.finalY || currentY;

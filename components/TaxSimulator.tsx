@@ -118,6 +118,7 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
         await generateTaxReport(
             simulatedPlan,
             realizedSummary,
+            records, // Pass all records for account number lookup
             () => setIsGeneratingReport(true),
             () => setIsGeneratingReport(false)
         );
