@@ -1,6 +1,10 @@
 # Commit History
 
-## 29. [2026-01-10 12:00] Commit: c9d8e7f
+## 30. [2026-01-10 13:25] Commit: 9b2a7e4
+
+   **Title:** feat: Display estimated tax amount in Simulator Results header
+
+## 29. [2026-01-10 12:00] Commit: a85d2c3
 
    **Title:** feat: Refine PDF report to show sell quantity per account (Greedy Allocation)
 

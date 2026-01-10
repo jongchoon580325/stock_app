@@ -329,6 +329,13 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                             )}
                         </div>
 
+                        {/* Estimated Tax Display */}
+                        {simulatedPlan && simulatedPlan.totalTaxableDetail.finalTax > 0 && (
+                            <div className="font-bold text-lg text-slate-800">
+                                예상 양도세 : {Math.round(simulatedPlan.totalTaxableDetail.finalTax).toLocaleString()} 원
+                            </div>
+                        )}
+
                         {/* Download PDF Button */}
                         {simulatedPlan && (
                             <button
