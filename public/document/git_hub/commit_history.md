@@ -1,6 +1,10 @@
 # Commit History
 
-## 31. [2026-01-10 13:45] Commit: a2d4e6f
+## 32. [2026-01-12 23:50] Commit: 7a8b9c0
+
+   **Title:** feat: Implement manual exchange rate input with inline edit UI
+
+## 31. [2026-01-10 13:45] Commit: 43607f8
 
    **Title:** fix: Ensure estimated tax is always displayed in Simulator UI and added to PDF report
 

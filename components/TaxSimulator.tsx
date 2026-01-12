@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, Download, Loader2, Settings, RefreshCw, RotateCcw } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, Download, Loader2, Settings, RefreshCw, RotateCcw, Edit2, Check, X } from 'lucide-react';
 import { AssetRecord } from '../types';
 import { calculateCurrentPortfolio, calculateRealizedGainByYear, PortfolioItem } from '../logic/usTaxEngine';
 import { buildExemptionSafePlan, buildTargetAmountPlan, StrategyPlan } from '../logic/taxStrategyService';
@@ -12,9 +12,14 @@ import { ApiKeyModal } from './ApiKeyModal'; // Import new modal
 interface TaxSimulatorProps {
     records: AssetRecord[];
     currentFxRate: number;
+    isManualFxMode?: boolean;
+    onManualFxRateChange?: (val: number | null) => void;
 }
 
-export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRate }) => {
+export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRate, isManualFxMode = false, onManualFxRateChange }) => {
+    // State for FX Rate Edit Mode
+    const [isEditingFxRate, setIsEditingFxRate] = useState(false);
+    const [tempFxRate, setTempFxRate] = useState<string>(currentFxRate.toString());
     // State for user inputs
     const [priceMap, setPriceMap] = useState<Map<string, number>>(new Map());
     const [targetAmount, setTargetAmount] = useState<number>(0);
@@ -233,7 +238,80 @@ export const TaxSimulator: React.FC<TaxSimulatorProps> = ({ records, currentFxRa
                 </div>
 
                 <div className="bg-slate-50 p-3 rounded text-xs text-slate-500">
-                    <p>ℹ️ <strong>현재 환율:</strong> {currentFxRate.toLocaleString()}원/USD</p>
+                    {!isEditingFxRate ? (
+                        <div className="flex items-center justify-between">
+                            <p>
+                                ℹ️ <strong>현재 환율:</strong> {currentFxRate.toLocaleString()}원/USD
+                                {isManualFxMode && <span className="ml-1 text-amber-600 font-semibold">(수동)</span>}
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setTempFxRate(currentFxRate.toString());
+                                    setIsEditingFxRate(true);
+                                }}
+                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="환율 수정"
+                            >
+                                <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold">환율 입력:</span>
+                            <input
+                                type="number"
+                                value={tempFxRate}
+                                onChange={(e) => setTempFxRate(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const val = parseFloat(tempFxRate);
+                                        if (!isNaN(val) && val > 0 && onManualFxRateChange) {
+                                            onManualFxRateChange(val);
+                                        }
+                                        setIsEditingFxRate(false);
+                                    } else if (e.key === 'Escape') {
+                                        setIsEditingFxRate(false);
+                                    }
+                                }}
+                                className="w-24 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                placeholder="1450"
+                                autoFocus
+                            />
+                            <button
+                                onClick={() => {
+                                    const val = parseFloat(tempFxRate);
+                                    if (!isNaN(val) && val > 0 && onManualFxRateChange) {
+                                        onManualFxRateChange(val);
+                                    }
+                                    setIsEditingFxRate(false);
+                                }}
+                                className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                title="적용"
+                            >
+                                <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setIsEditingFxRate(false)}
+                                className="p-1 text-slate-400 hover:bg-slate-100 rounded"
+                                title="취소"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                            {isManualFxMode && (
+                                <button
+                                    onClick={() => {
+                                        if (onManualFxRateChange) {
+                                            onManualFxRateChange(null); // Reset to auto
+                                        }
+                                        setIsEditingFxRate(false);
+                                    }}
+                                    className="ml-2 px-2 py-1 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                                >
+                                    자동
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <p className="mt-1">정확한 시뮬레이션을 위해 매도하려는 시점의 예상 주가를 입력해주세요.</p>
                 </div>
             </div>

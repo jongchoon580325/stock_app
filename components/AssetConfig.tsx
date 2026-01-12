@@ -42,8 +42,16 @@ export const AssetConfig: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
 
     // Exchange rate state
-    const [exchangeRate, setExchangeRate] = useState(1470); // Default fallback
+    const [apiFxRate, setApiFxRate] = useState(1470); // API fetched rate
+    const [manualFxRate, setManualFxRate] = useState<number | null>(() => {
+        const saved = localStorage.getItem('manualFxRate');
+        return saved ? parseFloat(saved) : null;
+    });
     const [isLoadingRate, setIsLoadingRate] = useState(true);
+
+    // Effective FX Rate: Manual takes priority over API
+    const exchangeRate = (manualFxRate !== null && manualFxRate > 0) ? manualFxRate : apiFxRate;
+    const isManualMode = manualFxRate !== null && manualFxRate > 0;
 
     // Migration Status
     const [migrationLoading, setMigrationLoading] = useState(false);
@@ -89,7 +97,7 @@ export const AssetConfig: React.FC = () => {
                 const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
                 const data = await response.json();
                 if (data.rates && data.rates.KRW) {
-                    setExchangeRate(data.rates.KRW);
+                    setApiFxRate(data.rates.KRW);
                 }
             } catch (error) {
                 console.error('Failed to fetch exchange rate:', error);
@@ -683,6 +691,15 @@ export const AssetConfig: React.FC = () => {
                 <TaxSimulator
                     records={records}
                     currentFxRate={exchangeRate}
+                    isManualFxMode={isManualMode}
+                    onManualFxRateChange={(val: number | null) => {
+                        setManualFxRate(val);
+                        if (val !== null && val > 0) {
+                            localStorage.setItem('manualFxRate', String(val));
+                        } else {
+                            localStorage.removeItem('manualFxRate');
+                        }
+                    }}
                 />
             )}
 
